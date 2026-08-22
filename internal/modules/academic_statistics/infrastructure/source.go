@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 	mysqldriver "github.com/go-sql-driver/mysql"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/domain"
 )
 
 const sourceAggregateQuery = `

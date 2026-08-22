@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/application"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 )
 
 var chinaStandardTime = time.FixedZone("Asia/Shanghai", 8*60*60)

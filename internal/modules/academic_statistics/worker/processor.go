@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/application"
 	"github.com/hibiken/asynq"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/application"
 )
 
 // ManualRunner executes one Analytics-owned aggregation.

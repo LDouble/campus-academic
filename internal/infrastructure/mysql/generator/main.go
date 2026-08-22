@@ -2,7 +2,7 @@
 package main
 
 import (
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 	"gorm.io/gen"
 )
 

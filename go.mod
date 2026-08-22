@@ -1,4 +1,4 @@
-module github.com/weouc-plus/campus-academic
+module github.com/LDouble/campus-academic
 
 go 1.25.0
 

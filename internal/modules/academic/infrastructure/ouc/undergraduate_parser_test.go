@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 )
 
 func TestParseUndergraduatePeriodsFromScheduleSelector(t *testing.T) {

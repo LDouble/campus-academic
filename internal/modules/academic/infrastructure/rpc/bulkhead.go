@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	academicapp "github.com/weouc-plus/campus-academic/internal/modules/academic/application"
+	academicapp "github.com/LDouble/campus-academic/internal/modules/academic/application"
 )
 
 type bulkhead struct {

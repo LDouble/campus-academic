@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/application"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 )
 
 const graduateCoursePlanFixture = `

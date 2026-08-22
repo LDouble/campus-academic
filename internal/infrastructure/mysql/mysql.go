@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/weouc-plus/campus-academic/internal/core/bootstrap"
+	"github.com/LDouble/campus-academic/internal/core/bootstrap"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

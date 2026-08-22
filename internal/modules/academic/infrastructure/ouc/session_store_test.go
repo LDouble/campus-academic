@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/LDouble/campus-academic/internal/core/configcenter"
+	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-	"github.com/weouc-plus/campus-academic/internal/core/configcenter"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 )
 
 func TestEncryptedRedisSessionStoreRoundTrip(t *testing.T) {

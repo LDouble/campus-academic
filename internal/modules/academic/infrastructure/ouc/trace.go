@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LDouble/campus-academic/internal/core/requestmeta"
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
+	verificationapp "github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
 	"github.com/google/uuid"
-	"github.com/weouc-plus/campus-academic/internal/core/requestmeta"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/application"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/infrastructure/academicconfig"
-	verificationapp "github.com/weouc-plus/campus-academic/internal/modules/academic_verification/application"
 	"go.uber.org/zap"
 )
 

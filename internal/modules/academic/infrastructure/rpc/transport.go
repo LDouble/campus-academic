@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/weouc-plus/campus-academic/internal/core/bootstrap"
+	"github.com/LDouble/campus-academic/internal/core/bootstrap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

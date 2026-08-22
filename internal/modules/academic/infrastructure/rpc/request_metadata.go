@@ -3,7 +3,7 @@ package rpc
 import (
 	"context"
 
-	"github.com/weouc-plus/campus-academic/internal/core/requestmeta"
+	"github.com/LDouble/campus-academic/internal/core/requestmeta"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

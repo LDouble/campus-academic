@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_verification/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
 	"golang.org/x/crypto/bcrypt"
 )
 

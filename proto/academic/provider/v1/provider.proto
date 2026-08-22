@@ -5,7 +5,7 @@ package academic.provider.v1;
 // The generated package is intentionally outside internal/. It is the
 // versioned service contract shared by campus-platform and the independently
 // deployed academic service.
-option go_package = "github.com/weouc-plus/campus-academic/pkg/academic/provider/v1;academicproviderv1";
+option go_package = "github.com/LDouble/campus-academic/pkg/academic/provider/v1;academicproviderv1";
 
 import "google/protobuf/timestamp.proto";
 

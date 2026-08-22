@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/core/apperror"
-	platformquery "github.com/weouc-plus/campus-academic/internal/infrastructure/mysql/query"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/domain"
+	"github.com/LDouble/campus-academic/internal/core/apperror"
+	platformquery "github.com/LDouble/campus-academic/internal/infrastructure/mysql/query"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
 )

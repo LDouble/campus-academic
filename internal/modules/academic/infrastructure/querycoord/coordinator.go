@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/LDouble/campus-academic/internal/core/ratelimitconfig"
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 	"github.com/redis/go-redis/v9"
-	"github.com/weouc-plus/campus-academic/internal/core/ratelimitconfig"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/application"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )

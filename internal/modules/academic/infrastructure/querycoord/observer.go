@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
 )
 
 const (

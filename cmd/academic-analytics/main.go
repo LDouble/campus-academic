@@ -10,10 +10,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/weouc-plus/campus-academic/internal/academicanalytics"
-	"github.com/weouc-plus/campus-academic/internal/core/bootstrap"
-	"github.com/weouc-plus/campus-academic/internal/infrastructure/metrics"
-	statisticsworker "github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/worker"
+	"github.com/LDouble/campus-academic/internal/academicanalytics"
+	"github.com/LDouble/campus-academic/internal/core/bootstrap"
+	"github.com/LDouble/campus-academic/internal/infrastructure/metrics"
+	statisticsworker "github.com/LDouble/campus-academic/internal/modules/academic_statistics/worker"
 	"go.uber.org/zap"
 )
 

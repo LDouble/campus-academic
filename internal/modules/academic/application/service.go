@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/core/apperror"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/core/apperror"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 )
 
 const (

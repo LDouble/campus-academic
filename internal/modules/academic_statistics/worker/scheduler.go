@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/application"
 	"go.uber.org/zap"
 )
 

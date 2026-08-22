@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package academic.analytics.v1;
 
-option go_package = "github.com/weouc-plus/campus-academic/pkg/academic/analytics/v1;academicanalyticsv1";
+option go_package = "github.com/LDouble/campus-academic/pkg/academic/analytics/v1;academicanalyticsv1";
 
 import "google/protobuf/timestamp.proto";
 

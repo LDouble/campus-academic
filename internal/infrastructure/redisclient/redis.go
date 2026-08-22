@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/LDouble/campus-academic/internal/core/bootstrap"
 	"github.com/redis/go-redis/v9"
-	"github.com/weouc-plus/campus-academic/internal/core/bootstrap"
 )
 
 // Options creates a bounded Redis client configuration for one service DB.

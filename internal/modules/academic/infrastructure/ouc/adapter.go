@@ -3,9 +3,9 @@ package ouc
 import (
 	"fmt"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/infrastructure/academicconfig"
-	verificationapp "github.com/weouc-plus/campus-academic/internal/modules/academic_verification/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
+	verificationapp "github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
 )
 
 // systemAdapter isolates one school-system contract from the shared SSO and

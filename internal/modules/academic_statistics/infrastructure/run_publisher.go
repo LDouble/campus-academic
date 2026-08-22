@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/application"
 	"github.com/hibiken/asynq"
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/application"
 )
 
 const (

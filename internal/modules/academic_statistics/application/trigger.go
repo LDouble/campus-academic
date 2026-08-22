@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/weouc-plus/campus-academic/internal/core/apperror"
-	"github.com/weouc-plus/campus-academic/internal/core/idempotency"
+	"github.com/LDouble/campus-academic/internal/core/apperror"
+	"github.com/LDouble/campus-academic/internal/core/idempotency"
 )
 
 const (

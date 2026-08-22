@@ -17,7 +17,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 )
 
 func newAcademicCourseTermStatistic(db *gorm.DB, opts ...gen.DOOption) academicCourseTermStatistic {

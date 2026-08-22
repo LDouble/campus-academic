@@ -3,7 +3,7 @@ package ouc
 import (
 	"testing"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 )
 
 func TestParseUndergraduateJSONAliases(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic_statistics/domain"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 )
 
 // ErrRunAlreadyLocked reports that another worker is already aggregating.

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/weouc-plus/campus-academic/internal/modules/academic/infrastructure/academicconfig"
+	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 )
 
 type errorReadCloser struct{ err error }
