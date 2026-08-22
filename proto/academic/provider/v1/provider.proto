@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package academic.provider.v1;
+
+// The generated package is intentionally outside internal/. It is the
+// versioned service contract shared by campus-platform and the independently
+// deployed academic service.
+option go_package = "github.com/weouc-plus/campus-academic/pkg/academic/provider/v1;academicproviderv1";
+
+import "google/protobuf/timestamp.proto";
+
+service AcademicProviderService {
+  rpc VerifyCredential(VerifyCredentialRequest) returns (VerifyCredentialResponse);
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+  rpc ListGrades(ListGradesRequest) returns (ListGradesResponse);
+  rpc ListExams(ListExamsRequest) returns (ListExamsResponse);
+  rpc ListCourseSelections(ListCourseSelectionsRequest) returns (ListCourseSelectionsResponse);
+  rpc ListCourseCatalogPage(ListCourseCatalogPageRequest) returns (ListCourseCatalogPageResponse);
+  rpc DeleteStudentSessions(DeleteStudentSessionsRequest) returns (DeleteStudentSessionsResponse);
+}
+
+message Credential {
+  string student_no = 1;
+  string password = 2;
+}
+
+message StudentReference {
+  uint64 user_id = 1;
+  string student_no = 2;
+  string provider = 3;
+  string education_level = 4;
+}
+
+message VerifyCredentialRequest {
+  Credential credential = 1;
+  string education_level = 2;
+}
+
+message VerifyCredentialResponse {
+  string real_name = 1;
+  string provider = 2;
+  string education_level = 3;
+}
+
+message ListCoursesRequest {
+  StudentReference student = 1;
+  Credential credential = 2;
+  string period_id = 3;
+}
+
+message ListCoursesResponse {
+  repeated Course courses = 1;
+	CacheMetadata cache = 2;
+	string schedule_note = 3;
+}
+
+// CacheMetadata is present only when the response was served from the
+// provider's encrypted Redis result cache.
+message CacheMetadata {
+	string state = 1;
+	google.protobuf.Timestamp cached_at = 2;
+	google.protobuf.Timestamp fresh_until = 3;
+}
+
+message Course {
+  string id = 1;
+  string period_id = 2;
+  string course_code = 3;
+  string name = 4;
+  string teacher = 5;
+  string campus = 6;
+  string location = 7;
+  int32 weekday = 8;
+  int32 start_section = 9;
+  int32 end_section = 10;
+  repeated int32 weeks = 11;
+  string note = 12;
+}
+
+message ListGradesRequest {
+  StudentReference student = 1;
+  Credential credential = 2;
+  string period_id = 3;
+}
+
+message ListGradesResponse {
+  repeated Grade grades = 1;
+	CacheMetadata cache = 2;
+}
+
+message Grade {
+  string id = 1;
+  string period_id = 2;
+  string course_code = 3;
+  string course_name = 4;
+  string course_type = 5;
+  double credit = 6;
+  string grade_type = 7;
+  optional double score = 8;
+  optional string grade_level = 9;
+}
+
+message ListExamsRequest {
+  StudentReference student = 1;
+  Credential credential = 2;
+  string period_id = 3;
+}
+
+message ListExamsResponse {
+  repeated Exam exams = 1;
+	CacheMetadata cache = 2;
+}
+
+message Exam {
+  string id = 1;
+  string period_id = 2;
+  string course_code = 3;
+  string course_name = 4;
+  google.protobuf.Timestamp start_at = 5;
+  google.protobuf.Timestamp end_at = 6;
+  string campus = 7;
+  string location = 8;
+  string seat = 9;
+  string phase = 10;
+  string method = 11;
+  string materials = 12;
+  string notice = 13;
+}
+
+message ListCourseSelectionsRequest {
+  StudentReference student = 1;
+  Credential credential = 2;
+  string period_id = 3;
+}
+
+message ListCourseSelectionsResponse {
+  repeated CourseSelection selections = 1;
+	CacheMetadata cache = 2;
+}
+
+message CourseSelection {
+  string id = 1;
+  string period_id = 2;
+  string course_code = 3;
+  string course_name = 4;
+  string course_type = 5;
+  double credit = 6;
+  string teacher = 7;
+  string campus = 8;
+  string location = 9;
+  string schedule = 10;
+  int32 capacity = 11;
+  int32 enrolled = 12;
+  string status = 13;
+  optional google.protobuf.Timestamp selected_at = 14;
+  optional string result_text = 15;
+  optional string note = 16;
+}
+
+message DeleteStudentSessionsRequest {
+  string student_no = 1;
+}
+
+message DeleteStudentSessionsResponse {}
+
+message ListCourseCatalogPageRequest {
+  Credential credential = 1;
+  string education_level = 2;
+  string period_id = 3;
+  int32 page = 4;
+}
+
+message ListCourseCatalogPageResponse {
+  repeated CourseCatalogEntry entries = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  int32 total_count = 4;
+  int32 total_pages = 5;
+  bool has_more = 6;
+}
+
+message CourseCatalogEntry {
+  string source_key = 1;
+  string period_id = 2;
+  string opening_code = 3;
+  string course_code = 4;
+  string course_name = 5;
+  string course_type = 6;
+  string department = 7;
+  string teachers = 8;
+  string campus = 9;
+  string classes = 10;
+  string schedule = 11;
+  string location = 12;
+  string language = 13;
+  int32 capacity = 14;
+  int32 enrolled = 15;
+  string note = 16;
+}

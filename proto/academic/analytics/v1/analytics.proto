@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package academic.analytics.v1;
+
+option go_package = "github.com/weouc-plus/campus-academic/pkg/academic/analytics/v1;academicanalyticsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// AcademicAnalyticsService exposes published, aggregate-only academic data.
+// It must never return student-level grades or identities.
+service AcademicAnalyticsService {
+  rpc ListCoursePassRates(ListCoursePassRatesRequest)
+      returns (ListCoursePassRatesResponse);
+  rpc ListInstructorPassRates(ListInstructorPassRatesRequest)
+      returns (ListInstructorPassRatesResponse);
+  rpc GetCoursePassRateTrend(GetCoursePassRateTrendRequest)
+      returns (GetCoursePassRateTrendResponse);
+  rpc GetInstructorPassRateTrend(GetInstructorPassRateTrendRequest)
+      returns (GetInstructorPassRateTrendResponse);
+  rpc ListBatches(ListBatchesRequest) returns (ListBatchesResponse);
+  rpc TriggerManualRun(TriggerManualRunRequest)
+      returns (TriggerManualRunResponse);
+}
+
+message PublicationMetadata {
+  uint64 batch_id = 1;
+  google.protobuf.Timestamp source_cutoff_at = 2;
+  google.protobuf.Timestamp published_at = 3;
+  string rule_version = 4;
+  int64 minimum_sample_size = 5;
+}
+
+message GradeDistribution {
+  int64 numeric_fail_count = 1;
+  int64 score_60_69_count = 2;
+  int64 score_70_79_count = 3;
+  int64 score_80_89_count = 4;
+  int64 score_90_100_count = 5;
+  int64 level_excellent_count = 6;
+  int64 level_good_count = 7;
+  int64 level_medium_count = 8;
+  int64 level_pass_count = 9;
+  int64 level_fail_count = 10;
+}
+
+message CoursePassRate {
+  string education_level = 1;
+  string course_code = 2;
+  string course_name = 3;
+  int64 term_count = 4;
+  int64 valid_count = 5;
+  int64 pass_count = 6;
+  int64 fail_count = 7;
+  int64 numeric_score_count = 8;
+  int64 numeric_score_sum_x100 = 9;
+  GradeDistribution distribution = 10;
+}
+
+message InstructorPassRate {
+  string education_level = 1;
+  string course_code = 2;
+  string course_name = 3;
+  string teacher_key = 4;
+  string teacher_name = 5;
+  int64 term_count = 6;
+  int64 class_count = 7;
+  int64 valid_count = 8;
+  int64 pass_count = 9;
+  int64 fail_count = 10;
+  int64 numeric_score_count = 11;
+  int64 numeric_score_sum_x100 = 12;
+  GradeDistribution distribution = 13;
+}
+
+message PassRateTrendPoint {
+  string education_level = 1;
+  string period_id = 2;
+  string term_label = 3;
+  string term_code = 4;
+  int64 valid_count = 5;
+  int64 pass_count = 6;
+  int64 fail_count = 7;
+  int64 numeric_score_count = 8;
+  int64 numeric_score_sum_x100 = 9;
+  GradeDistribution distribution = 10;
+}
+
+message PassRateTrend {
+  string course_code = 1;
+  string course_name = 2;
+  string teacher_key = 3;
+  string teacher_name = 4;
+  repeated PassRateTrendPoint points = 5;
+}
+
+message AcademicStatisticsBatch {
+  uint64 id = 1;
+  string status = 2;
+  string trigger_type = 3;
+  optional uint64 triggered_by = 4;
+  optional string trigger_note = 5;
+  optional string trigger_task_id = 6;
+  google.protobuf.Timestamp source_cutoff_at = 7;
+  string rule_version = 8;
+  int64 source_row_count = 9;
+  int64 course_stat_count = 10;
+  int64 instructor_stat_count = 11;
+  optional string error_summary = 12;
+  google.protobuf.Timestamp started_at = 13;
+  optional google.protobuf.Timestamp finished_at = 14;
+  optional google.protobuf.Timestamp published_at = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message ListCoursePassRatesRequest {
+  string keyword = 1;
+  string course_code = 2;
+  string term_code = 3;
+  string education_level = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListCoursePassRatesResponse {
+  PublicationMetadata metadata = 1;
+  repeated CoursePassRate items = 2;
+  int64 total = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListInstructorPassRatesRequest {
+  string course_code = 1;
+  string teacher_name = 2;
+  string term_code = 3;
+  string education_level = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListInstructorPassRatesResponse {
+  PublicationMetadata metadata = 1;
+  repeated InstructorPassRate items = 2;
+  int64 total = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message GetCoursePassRateTrendRequest {
+  string course_code = 1;
+}
+
+message GetInstructorPassRateTrendRequest {
+  string course_code = 1;
+  string teacher_key = 2;
+}
+
+message GetCoursePassRateTrendResponse {
+  PublicationMetadata metadata = 1;
+  PassRateTrend trend = 2;
+}
+
+message GetInstructorPassRateTrendResponse {
+  PublicationMetadata metadata = 1;
+  PassRateTrend trend = 2;
+}
+
+message ListBatchesRequest {
+  string status = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListBatchesResponse {
+  repeated AcademicStatisticsBatch items = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message TriggerManualRunRequest {
+  uint64 actor_id = 1;
+  string confirmation = 2;
+  string note = 3;
+  string idempotency_key = 4;
+}
+
+message TriggerManualRunResponse {
+  string task_id = 1;
+  google.protobuf.Timestamp queued_at = 2;
+}

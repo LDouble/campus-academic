@@ -1,0 +1,5 @@
+-- module: academic_statistics
+ALTER TABLE academic_instructor_course_term_statistics DROP COLUMN numeric_score_sum_x100;
+ALTER TABLE academic_instructor_course_term_statistics DROP COLUMN numeric_score_count;
+ALTER TABLE academic_course_term_statistics DROP COLUMN numeric_score_sum_x100;
+ALTER TABLE academic_course_term_statistics DROP COLUMN numeric_score_count;

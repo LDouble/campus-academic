@@ -1,0 +1,15 @@
+FROM golang:1.25 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/academic-provider ./cmd/academic-provider && \
+    CGO_ENABLED=0 go build -o /out/academic-analytics ./cmd/academic-analytics && \
+    CGO_ENABLED=0 go build -o /out/academicctl ./cmd/academicctl
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/academic-provider /app/academic-provider
+COPY --from=build /out/academic-analytics /app/academic-analytics
+COPY --from=build /out/academicctl /app/academicctl
+COPY migrations /app/migrations
+WORKDIR /app

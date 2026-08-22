@@ -1,0 +1,8 @@
+academic_provider:
+  active_provider: mock
+  mock_credentials: []
+
+# Optional: security.rate_limits.rate_limits can contain the validated JSON
+# document used by the provider's distributed limiter. When omitted, the
+# repository-safe default policy is used.
+security: {}
