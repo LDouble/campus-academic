@@ -101,3 +101,19 @@ Redis 健康，再用相同的 Analytics 镜像执行迁移并启动服务。
 关闭明文 Redis 端口、监听 TLS 端口，并引用 `/run/secrets/analytics-redis` 下的证书。
 若 Redis 配置启用客户端证书校验，环境文件中的客户端证书/私钥名称必须与 bootstrap
 中的 Analytics Redis 配置一致。
+
+最小 Redis TLS 配置如下；发布器会拒绝明文端口、错误 TLS 端口、越过 Secret 根目录
+的路径，以及缺失或为空的证书文件：
+
+```text
+port 0
+tls-port 6379
+tls-cert-file /run/secrets/analytics-redis/server.crt
+tls-key-file /run/secrets/analytics-redis/server.key
+tls-ca-cert-file /run/secrets/analytics-redis/ca.crt
+```
+
+`academic-analytics` 的 Compose healthcheck 调用镜像内置的
+`/app/academic-analytics healthcheck`，使用 bootstrap 中的 `127.0.0.1:9091` 与
+Analytics mTLS 客户端材料完成真实 gRPC 健康检查。发布器只有在该检查返回 healthy 后
+才报告完成。

@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet fmt generate generate-check migration-up production review analytics-production analytics-review test-deploy
+.PHONY: build test test-race vet fmt generate generate-check migration-up production review analytics-production analytics-review test-deploy test-deploy-provider test-deploy-analytics
 
 BUF ?= go run github.com/bufbuild/buf/cmd/buf@v1.61.0
 
@@ -43,6 +43,10 @@ analytics-production:
 analytics-review:
 	./scripts/deploy-analytics.sh review
 
-test-deploy:
+test-deploy: test-deploy-provider test-deploy-analytics
+
+test-deploy-provider:
 	./scripts/tests/deploy-provider_test.sh
+
+test-deploy-analytics:
 	./scripts/tests/deploy-analytics_test.sh

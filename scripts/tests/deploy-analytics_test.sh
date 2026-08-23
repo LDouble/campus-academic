@@ -10,6 +10,31 @@ fake_state=$test_root/state
 fake_log=$test_root/docker.log
 mkdir -p "$fake_state" "$test_root/rpc-tls" "$test_root/analytics-redis-tls"
 
+compose_file=$repo_root/deploy/analytics.compose.yaml
+defined_services=$(awk '
+  /^services:[[:space:]]*$/ { inside=1; next }
+  inside && /^[^[:space:]]/ { exit }
+  inside && /^  [a-z][a-z0-9-]*:[[:space:]]*$/ {
+    service=$0
+    sub(/^  /, "", service)
+    sub(/:[[:space:]]*$/, "", service)
+    print service
+  }
+' "$compose_file")
+expected_services=$(printf '%s\n' analytics-redis analytics-mysql analytics-migrate academic-analytics)
+[ "$defined_services" = "$expected_services" ] || {
+  echo 'Analytics 独立 Compose 服务集合不符合预期' >&2
+  exit 1
+}
+[ "$(grep -c 'image: ${CAMPUS_ACADEMIC_ANALYTICS_IMAGE:?set CAMPUS_ACADEMIC_ANALYTICS_IMAGE}' "$compose_file")" -eq 2 ] || {
+  echo '迁移与 Analytics 服务必须使用同一个 Analytics 镜像变量' >&2
+  exit 1
+}
+grep -Fq 'test: ["CMD", "/app/academic-analytics", "healthcheck"]' "$compose_file" || {
+  echo 'Analytics Compose 缺少自身 gRPC healthcheck' >&2
+  exit 1
+}
+
 cat >"$test_root/docker" <<'FAKE'
 #!/bin/sh
 set -eu
@@ -79,8 +104,8 @@ analytics:
     server_name: analytics-redis.internal
 YAML
 for file in ca.crt client.crt client.key server.crt server.key; do printf 'fixture\n' >"$test_root/rpc-tls/$file"; done
-printf 'fixture\n' >"$test_root/analytics-redis-tls/redis-ca.crt"
-printf 'port 6379\ntls-port 6379\ntls-cert-file /run/secrets/analytics-redis/server.crt\ntls-key-file /run/secrets/analytics-redis/server.key\ntls-ca-cert-file /run/secrets/analytics-redis/redis-ca.crt\n' >"$test_root/redis.conf"
+for file in redis-ca.crt server.crt server.key; do printf 'fixture\n' >"$test_root/analytics-redis-tls/$file"; done
+printf 'port 0\ntls-port 6379\ntls-cert-file /run/secrets/analytics-redis/server.crt\ntls-key-file /run/secrets/analytics-redis/server.key\ntls-ca-cert-file /run/secrets/analytics-redis/redis-ca.crt\n' >"$test_root/redis.conf"
 
 cat >"$test_root/analytics.env" <<EOF
 CAMPUS_ACADEMIC_ANALYTICS_IMAGE=registry.example/academic-analytics@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -104,9 +129,11 @@ run_deploy() {
 
 output=$(run_deploy)
 printf '%s' "$output" | grep -q 'production Analytics 发布完成'
+printf '%s' "$output" | grep -q 'Academic Analytics gRPC healthcheck 已健康'
 grep -q 'up -d --no-build analytics-mysql analytics-redis' "$fake_log"
 grep -q 'up --no-build --no-deps --abort-on-container-exit analytics-migrate' "$fake_log"
 grep -q 'up -d --no-build --no-deps academic-analytics' "$fake_log"
+grep -q "inspect --format .*State.Health.* academic-analytics-id" "$fake_log"
 if grep -Eq 'academic-provider|provider-redis|atrust' "$fake_log"; then
   echo 'Analytics 发布器不应启动 Provider、Provider Redis 或 aTrust' >&2
   exit 1
@@ -121,6 +148,15 @@ if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root
 fi
 grep -q 'Analytics 必须启用 mTLS' "$test_root/insecure.out"
 
+sed 's/environment: production/environment: review/' "$test_root/bootstrap.yaml" >"$test_root/wrong-environment-bootstrap.yaml"
+sed "s#$test_root/bootstrap.yaml#$test_root/wrong-environment-bootstrap.yaml#" "$test_root/analytics.env" >"$test_root/wrong-environment.env"
+if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  ANALYTICS_ENV_FILE=$test_root/wrong-environment.env "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/wrong-environment.out" 2>&1; then
+  echo '错误的 bootstrap environment 未被拒绝' >&2
+  exit 1
+fi
+grep -q 'bootstrap environment 与发布环境不一致' "$test_root/wrong-environment.out"
+
 sed 's#@sha256:[0-9a-f]*#:review#' "$test_root/analytics.env" >"$test_root/mutable.env"
 if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
   ANALYTICS_ENV_FILE=$test_root/mutable.env "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/mutable.out" 2>&1; then
@@ -128,6 +164,24 @@ if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root
   exit 1
 fi
 grep -q 'Production Analytics 镜像必须使用 64 位 sha256 摘要' "$test_root/mutable.out"
+
+sed 's/^port 0$/port 6379/' "$test_root/redis.conf" >"$test_root/plaintext-redis.conf"
+sed "s#$test_root/redis.conf#$test_root/plaintext-redis.conf#" "$test_root/analytics.env" >"$test_root/plaintext-redis.env"
+if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  ANALYTICS_ENV_FILE=$test_root/plaintext-redis.env "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/plaintext-redis.out" 2>&1; then
+  echo 'Analytics Redis 明文端口未被拒绝' >&2
+  exit 1
+fi
+grep -q '必须通过 port 0 关闭明文端口' "$test_root/plaintext-redis.out"
+
+sed 's#/run/secrets/analytics-redis/server.key#/tmp/server.key#' "$test_root/redis.conf" >"$test_root/outside-redis-tls.conf"
+sed "s#$test_root/redis.conf#$test_root/outside-redis-tls.conf#" "$test_root/analytics.env" >"$test_root/outside-redis-tls.env"
+if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  ANALYTICS_ENV_FILE=$test_root/outside-redis-tls.env "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/outside-redis-tls.out" 2>&1; then
+  echo 'Analytics Redis TLS 越界路径未被拒绝' >&2
+  exit 1
+fi
+grep -q '必须位于 /run/secrets/analytics-redis 根目录' "$test_root/outside-redis-tls.out"
 
 sed 's/environment: production/environment: review/' "$test_root/bootstrap.yaml" >"$test_root/review-bootstrap.yaml"
 sed "s#${test_root}/bootstrap.yaml#${test_root}/review-bootstrap.yaml#" "$test_root/mutable.env" >"$test_root/review.env"

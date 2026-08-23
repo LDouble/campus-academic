@@ -57,6 +57,22 @@ analytics_redis_value() {
   ' "$1"
 }
 
+redis_config_value() {
+  key=$2
+  awk -v key="$key" '
+    {
+      line=$0
+      sub(/^[[:space:]]*/, "", line)
+      if (line == "" || substr(line, 1, 1) == "#") next
+      split(line, fields, /[[:space:]]+/)
+      if (fields[1] == key) {
+        print fields[2]
+        exit
+      }
+    }
+  ' "$1"
+}
+
 analytics_compose() { "$docker_bin" compose --env-file "$env_file" -f "$analytics_compose_file" "$@"; }
 container_health() { "$docker_bin" inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$1"; }
 
@@ -89,6 +105,19 @@ validate_relative_secret_name() {
   case "$file_name" in ''|*/*|.|..) fail "$label 必须是 TLS 根目录内文件名" ;; esac
 }
 
+redis_tls_host_file() {
+  label=$1
+  container_path=$2
+  case "$container_path" in
+    /run/secrets/analytics-redis/*)
+      file_name=${container_path#/run/secrets/analytics-redis/}
+      validate_relative_secret_name "$label" "$file_name"
+      printf '%s\n' "$analytics_redis_tls_host_dir/$file_name"
+      ;;
+    *) fail "$label 必须位于 /run/secrets/analytics-redis 根目录" ;;
+  esac
+}
+
 require_file "$env_file"
 require_file "$analytics_compose_file"
 
@@ -117,6 +146,15 @@ require_file "$bootstrap_file"
 require_directory "$rpc_tls_host_dir"
 require_directory "$analytics_redis_tls_host_dir"
 require_file "$analytics_redis_config_file"
+
+[ "$(redis_config_value "$analytics_redis_config_file" port)" = 0 ] || fail "Analytics Redis 必须通过 port 0 关闭明文端口"
+[ "$(redis_config_value "$analytics_redis_config_file" tls-port)" = 6379 ] || fail "Analytics Redis tls-port 必须为 6379"
+for redis_tls_directive in tls-cert-file tls-key-file tls-ca-cert-file; do
+  redis_tls_path=$(redis_config_value "$analytics_redis_config_file" "$redis_tls_directive")
+  [ -n "$redis_tls_path" ] || fail "Analytics Redis 配置缺少 $redis_tls_directive"
+  redis_tls_file=$(redis_tls_host_file "Analytics Redis 的 $redis_tls_directive" "$redis_tls_path")
+  require_secret_file "$redis_tls_file"
+done
 
 [ "$(awk -F': ' '$1 == "environment" { print $2; exit }' "$bootstrap_file")" = "$environment" ] || fail "bootstrap environment 与发布环境不一致"
 [ "$(analytics_value "$bootstrap_file" insecure)" = false ] || fail "Review/Production Analytics 必须启用 mTLS"
@@ -182,6 +220,6 @@ echo "开始发布 Academic Analytics"
 analytics_compose up -d --no-build --no-deps academic-analytics
 analytics_container=$(analytics_compose ps -q academic-analytics)
 [ -n "$analytics_container" ] || fail "Analytics Compose 未返回容器 ID"
-wait_healthy "$analytics_container" "Academic Analytics"
+wait_healthy "$analytics_container" "Academic Analytics gRPC healthcheck"
 
 echo "$environment Analytics 发布完成；未启动 Provider、aTrust 或 Provider Redis"
