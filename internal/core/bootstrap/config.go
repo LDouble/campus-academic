@@ -66,6 +66,7 @@ type ProviderConfig struct {
 // queue Redis and gRPC server. SourceDSN is environment-only by design.
 type AnalyticsConfig struct {
 	ListenAddress     string        `yaml:"listen_address"`
+	Target            string        `yaml:"target"`
 	Insecure          bool          `yaml:"insecure"`
 	TLSFilesRoot      string        `yaml:"tls_files_root"`
 	CAFile            string        `yaml:"ca_file"`
@@ -218,6 +219,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.Analytics.ListenAddress == "" {
 		cfg.Analytics.ListenAddress = ":9091"
 	}
+	if cfg.Analytics.Target == "" {
+		cfg.Analytics.Target = "127.0.0.1:9091"
+	}
 	if cfg.Redis.Address == "" {
 		cfg.Redis.Address = "127.0.0.1:6379"
 	}
@@ -313,6 +317,7 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Redis.ClientKeyFile, "CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_KEY_FILE")
 	setString(&cfg.Redis.ServerName, "CAMPUS_ACADEMIC_PROVIDER_REDIS_SERVER_NAME")
 	setString(&cfg.Analytics.ListenAddress, "CAMPUS_ACADEMIC_ANALYTICS_LISTEN")
+	setString(&cfg.Analytics.Target, "CAMPUS_ACADEMIC_ANALYTICS_TARGET")
 	setString(&cfg.Analytics.MySQL.DSN, "CAMPUS_ACADEMIC_ANALYTICS_DSN")
 	setString(&cfg.Analytics.SourceDSN, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN")
 	setString(&cfg.Analytics.Redis.Address, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS")

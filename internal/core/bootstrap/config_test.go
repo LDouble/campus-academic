@@ -64,6 +64,9 @@ analytics:
 	if cfg.Analytics.ListenAddress != ":9091" {
 		t.Fatalf("analytics listen address = %q, want :9091", cfg.Analytics.ListenAddress)
 	}
+	if cfg.Analytics.Target != "127.0.0.1:9091" {
+		t.Fatalf("analytics target = %q, want healthcheck loopback target", cfg.Analytics.Target)
+	}
 	if len(cfg.Secret.AcademicProviderKey) != 0 || len(cfg.Secret.AcademicQueryKey) != 0 {
 		t.Fatalf("analytics loader unexpectedly populated provider secrets")
 	}

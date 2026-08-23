@@ -135,7 +135,8 @@ for file in ca.crt client.crt client.key server.crt server.key; do
 done
 
 cat >"$test_root/provider.env" <<EOF
-CAMPUS_ACADEMIC_IMAGE=registry.example/academic@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+CAMPUS_ACADEMIC_PROVIDER_IMAGE=registry.example/academic-provider@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+CAMPUS_ACADEMIC_ANALYTICS_IMAGE=registry.example/academic-analytics@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 CAMPUS_ATRUST_IMAGE=registry.example/atrust@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 CAMPUS_ATRUST_GATEWAY_HOME=$test_root/gateway-home
 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE=$test_root/bootstrap.yaml

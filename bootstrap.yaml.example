@@ -53,6 +53,7 @@ academic_query:
 
 analytics:
   listen_address: ":9091"
+  target: 127.0.0.1:9091
   insecure: true
   mysql:
     dsn: ""

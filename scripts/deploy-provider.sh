@@ -108,14 +108,14 @@ require_file "$env_file"
 require_file "$provider_compose_file"
 require_file "$provider_override_file"
 
-academic_image=$(resolve_setting CAMPUS_ACADEMIC_IMAGE)
+provider_image=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_IMAGE)
 bootstrap_file=$(resolve_setting CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE)
 provider_config_file=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE)
 rpc_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR)
 provider_redis_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR)
 atrust_gateway_home=$(resolve_setting CAMPUS_ATRUST_GATEWAY_HOME)
 
-[ -n "$academic_image" ] || fail "未配置 CAMPUS_ACADEMIC_IMAGE"
+[ -n "$provider_image" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_IMAGE"
 [ -n "$bootstrap_file" ] || fail "未配置 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE"
 [ -n "$provider_config_file" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE"
 [ -n "$rpc_tls_host_dir" ] || fail "未配置 CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR"
@@ -159,7 +159,7 @@ done
 active_provider=$(yaml_value "$provider_config_file" active_provider)
 if [ "$environment" = production ]; then
   [ "$active_provider" = ouc ] || fail "Production 禁止使用 Mock Provider"
-  case "$academic_image" in *@sha256:*) ;; *) fail "Production Academic 镜像必须使用 sha256 摘要" ;; esac
+  case "$provider_image" in *@sha256:*) ;; *) fail "Production Provider 镜像必须使用 sha256 摘要" ;; esac
 else
   case "$active_provider" in mock|ouc) ;; *) fail "Review Provider 必须为 mock 或 ouc" ;; esac
 fi

@@ -9,12 +9,16 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/LDouble/campus-academic/internal/academicanalytics"
 	"github.com/LDouble/campus-academic/internal/core/bootstrap"
 	"github.com/LDouble/campus-academic/internal/infrastructure/metrics"
+	academicrpc "github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/rpc"
 	statisticsworker "github.com/LDouble/campus-academic/internal/modules/academic_statistics/worker"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -25,8 +29,11 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
+		return runHealthcheck()
+	}
 	if len(os.Args) != 1 {
-		return fmt.Errorf("usage: academic-analytics")
+		return fmt.Errorf("usage: academic-analytics [healthcheck]")
 	}
 	cfg, err := bootstrap.LoadAnalytics(configPath())
 	if err != nil {
@@ -68,6 +75,35 @@ func run() error {
 		}
 		return fmt.Errorf("academic analytics runtime stopped: %w", err)
 	}
+}
+
+func runHealthcheck() error {
+	cfg, err := bootstrap.LoadAnalytics(configPath())
+	if err != nil {
+		return err
+	}
+	options, err := academicrpc.AnalyticsClientDialOptions(cfg.Analytics)
+	if err != nil {
+		return err
+	}
+	connection, err := grpc.NewClient(cfg.Analytics.Target, options...)
+	if err != nil {
+		return fmt.Errorf("create analytics health client: %w", err)
+	}
+	defer func() { _ = connection.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	response, err := grpc_health_v1.NewHealthClient(connection).Check(
+		ctx,
+		&grpc_health_v1.HealthCheckRequest{Service: "academic.analytics.v1.AcademicAnalyticsService"},
+	)
+	if err != nil {
+		return fmt.Errorf("check academic analytics health: %w", err)
+	}
+	if response.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		return fmt.Errorf("academic analytics is not serving")
+	}
+	return nil
 }
 
 func configPath() string {

@@ -47,12 +47,25 @@ make review PROVIDER_ENV_FILE="$PWD/deploy/provider.review.env"
   `CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR` 提供 CA、健康检查客户端证书和服务端证书；
 - Provider Redis TLS 文件通过 `CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR`
   只读挂载，具体文件名仍由 `bootstrap.yaml` 控制；
-- Academic 镜像必须使用 `@sha256:` 不可变摘要；aTrust 镜像及凭据门禁由独立仓库执行；
+- Provider 镜像必须使用 `@sha256:` 不可变摘要；Analytics 使用自己的镜像与发布周期；aTrust 镜像及凭据门禁由独立仓库执行；
 - `CAMPUS_ATRUST_GATEWAY_HOME` 必须是宿主机绝对路径，其中的发布脚本必须可执行；
 - 任一网络属性、aTrust 健康或 Provider 健康检查不符合预期都会中止发布。
 
 脚本不会删除已有网关、状态卷或网络。回滚 Provider 镜像时仍执行相同命令，只需
-将 `CAMPUS_ACADEMIC_IMAGE` 改为上一版本摘要；健康的 aTrust 会被直接复用。
+将 `CAMPUS_ACADEMIC_PROVIDER_IMAGE` 改为上一版本摘要；健康的 aTrust 会被直接复用。
+
+## 独立镜像
+
+仓库发布两个彼此独立的制品，不能用同一个镜像变量互相替代：
+
+```bash
+docker build -f Dockerfile.provider -t campus-academic-provider:local .
+docker build -f Dockerfile.analytics -t campus-academic-analytics:local .
+```
+
+Provider 镜像只包含 `academic-provider`。Analytics 镜像包含
+`academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`；
+`analytics-migrate` 与 `academic-analytics` 必须使用完全相同的 Analytics 镜像摘要。
 
 本仓库用以下命令验证与独立 aTrust 发布器的调用契约，不需要真实 Docker：
 

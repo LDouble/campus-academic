@@ -25,6 +25,20 @@ func ClientDialOptions(config bootstrap.ProviderConfig) ([]grpc.DialOption, erro
 	)
 }
 
+// AnalyticsClientDialOptions builds transport credentials for the private
+// Analytics channel, including the in-container health check.
+func AnalyticsClientDialOptions(config bootstrap.AnalyticsConfig) ([]grpc.DialOption, error) {
+	return clientDialOptions(
+		"academic analytics",
+		config.Insecure,
+		config.TLSFilesRoot,
+		config.CAFile,
+		config.ClientCertFile,
+		config.ClientKeyFile,
+		config.ServerName,
+	)
+}
+
 func clientDialOptions(
 	serviceName string,
 	insecureTransport bool,
