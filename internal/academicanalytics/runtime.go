@@ -12,6 +12,7 @@ import (
 	"github.com/LDouble/campus-academic/internal/infrastructure/logger"
 	"github.com/LDouble/campus-academic/internal/infrastructure/metrics"
 	"github.com/LDouble/campus-academic/internal/infrastructure/mysql"
+	"github.com/LDouble/campus-academic/internal/infrastructure/redisclient"
 	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/rpc"
 	statisticsapp "github.com/LDouble/campus-academic/internal/modules/academic_statistics/application"
 	statisticsinfra "github.com/LDouble/campus-academic/internal/modules/academic_statistics/infrastructure"
@@ -80,17 +81,16 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 		return nil, err
 	}
 	store := statisticsinfra.NewStore(db, cfg.Analytics.MinimumSampleSize)
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.Analytics.Redis.Address, Password: cfg.Analytics.Redis.Password, DB: cfg.Analytics.Redis.DB,
-	})
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		_ = redisClient.Close()
-		return nil, fmt.Errorf("ping academic analytics Redis: %w", err)
+	redisClient, err := redisclient.Open(ctx, cfg.Analytics.Redis)
+	if err != nil {
+		return nil, fmt.Errorf("open academic analytics Redis: %w", err)
 	}
 	runtime.Redis = redisClient
-	taskClient := asynq.NewClient(asynq.RedisClientOpt{
-		Addr: cfg.Analytics.Redis.Address, Password: cfg.Analytics.Redis.Password, DB: cfg.Analytics.Redis.DB,
-	})
+	taskRedis, err := redisclient.AsynqOptions(cfg.Analytics.Redis)
+	if err != nil {
+		return nil, fmt.Errorf("configure academic analytics task Redis: %w", err)
+	}
+	taskClient := asynq.NewClient(taskRedis)
 	runtime.Tasks = taskClient
 	publisher := statisticsinfra.NewRunPublisher(taskClient, cfg.Analytics.TaskQueue, cfg.Analytics.QueryTimeout)
 	manager := statisticsapp.NewManager(store).
@@ -123,7 +123,7 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 	statisticsworker.NewProcessor(manager).Register(mux)
 	runtime.Mux = mux
 	runtime.Worker = asynq.NewServer(
-		asynq.RedisClientOpt{Addr: cfg.Analytics.Redis.Address, Password: cfg.Analytics.Redis.Password, DB: cfg.Analytics.Redis.DB},
+		taskRedis,
 		asynq.Config{
 			Concurrency:    cfg.Analytics.WorkerConcurrency,
 			Queues:         map[string]int{cfg.Analytics.TaskQueue: 1},

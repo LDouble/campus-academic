@@ -12,7 +12,15 @@ provider:
 
 redis:
   address: 127.0.0.1:6379
+  username: ""
+  password: ""
   db: 0
+  tls: false
+  tls_files_root: ""
+  ca_file: ""
+  client_cert_file: ""
+  client_key_file: ""
+  server_name: ""
 
 academic_query:
   cache_mode: normal
@@ -33,7 +41,15 @@ analytics:
     dsn: ""
   redis:
     address: 127.0.0.1:6380
+    username: ""
+    password: ""
     db: 0
+    tls: false
+    tls_files_root: ""
+    ca_file: ""
+    client_cert_file: ""
+    client_key_file: ""
+    server_name: ""
   timezone: Asia/Shanghai
   schedule_hour: 4
   minimum_sample_size: 5
