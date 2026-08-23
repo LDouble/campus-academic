@@ -8,14 +8,16 @@
 
 ## Provider 自动化发布
 
-Provider 与 aTrust 分开管理。aTrust 的状态卷不会随 Provider 镜像发布而删除，
-Provider 发布器只对依赖执行幂等检查：
+Provider 与 aTrust 分仓管理。aTrust 的镜像、Compose、状态卷和生命周期脚本由
+独立 `campus-atrust-gateway` 仓库负责；本仓库只调用它的稳定发布入口：
 
-1. `campus-atrust-clients` 不存在时创建为内部网络，已存在时核对网络属性后跳过。
-2. `campus-atrust-egress` 不存在时创建为出口网络，已存在时跳过。
-3. 共享客户端网络内已有健康的 `atrust-gateway` 时直接复用；容器停止时启动，
-   不健康时重启，完全不存在时才通过 `deploy/atrust.compose.yaml` 创建。
-4. aTrust 健康后才更新 Provider，并等待 Provider 自身健康检查成功。
+1. 在 ECS 上检出 `campus-atrust-gateway`，并通过绝对路径
+   `CAMPUS_ATRUST_GATEWAY_HOME` 指向仓库目录。
+2. Provider 发布器以同一环境文件调用
+   `$CAMPUS_ATRUST_GATEWAY_HOME/scripts/ensure-gateway.sh`。
+3. 独立发布器负责创建或核对网络、复用健康网关、启动停止的网关、重启不健康网关，
+   仅在完全不存在时创建网关。
+4. aTrust 健康后本仓库才更新 Provider，并等待 Provider 自身健康检查成功。
 
 自动创建范围仅包含当前 ECS 上的 aTrust 网关及其 Docker 网络。Provider 的共享
 Redis 属于跨 ECS 的有状态基础设施，发布器只通过启动与健康检查验证连接，不会
@@ -45,15 +47,18 @@ make review PROVIDER_ENV_FILE="$PWD/deploy/provider.review.env"
   `CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR` 提供 CA、健康检查客户端证书和服务端证书；
 - Provider Redis TLS 文件通过 `CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR`
   只读挂载，具体文件名仍由 `bootstrap.yaml` 控制；
-- Academic 与 aTrust 镜像必须使用 `@sha256:` 不可变摘要；
-- aTrust 用户名、密码文件必须是非空的宿主机绝对路径；
+- Academic 镜像必须使用 `@sha256:` 不可变摘要；aTrust 镜像及凭据门禁由独立仓库执行；
+- `CAMPUS_ATRUST_GATEWAY_HOME` 必须是宿主机绝对路径，其中的发布脚本必须可执行；
 - 任一网络属性、aTrust 健康或 Provider 健康检查不符合预期都会中止发布。
 
 脚本不会删除已有网关、状态卷或网络。回滚 Provider 镜像时仍执行相同命令，只需
 将 `CAMPUS_ACADEMIC_IMAGE` 改为上一版本摘要；健康的 aTrust 会被直接复用。
 
-可用以下命令验证发布器的幂等与门禁逻辑，不需要真实 Docker：
+本仓库用以下命令验证与独立 aTrust 发布器的调用契约，不需要真实 Docker：
 
 ```bash
 make test-deploy
 ```
+
+aTrust 自身的幂等生命周期、网络和生产镜像门禁测试在
+`campus-atrust-gateway` 仓库执行 `make test`。

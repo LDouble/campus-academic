@@ -13,8 +13,6 @@ docker_bin=${DOCKER_BIN:-docker}
 env_file=${PROVIDER_ENV_FILE:-$repo_root/deploy/provider.$environment.env}
 provider_compose_file=${PROVIDER_COMPOSE_FILE:-$repo_root/deploy/compose.yaml}
 provider_override_file=${PROVIDER_OVERRIDE_FILE:-$repo_root/deploy/provider.atrust.override.yaml}
-atrust_compose_file=${ATRUST_COMPOSE_FILE:-$repo_root/deploy/atrust.compose.yaml}
-atrust_project=${ATRUST_PROJECT:-campus-academic-atrust}
 health_timeout=${PROVIDER_DEPENDENCY_HEALTH_TIMEOUT:-180}
 health_interval=${PROVIDER_DEPENDENCY_HEALTH_INTERVAL:-5}
 
@@ -83,29 +81,6 @@ provider_compose() {
     -f "$provider_compose_file" -f "$provider_override_file" "$@"
 }
 
-atrust_compose() {
-  "$docker_bin" compose -p "$atrust_project" --env-file "$env_file" \
-    -f "$atrust_compose_file" "$@"
-}
-
-ensure_network() {
-  network=$1
-  expected_internal=$2
-  if "$docker_bin" network inspect "$network" >/dev/null 2>&1; then
-    actual_internal=$("$docker_bin" network inspect --format '{{.Internal}}' "$network")
-    [ "$actual_internal" = "$expected_internal" ] || \
-      fail "网络 $network 的 Internal=$actual_internal，期望 $expected_internal"
-    echo "依赖已存在，跳过创建网络: $network"
-    return
-  fi
-  if [ "$expected_internal" = true ]; then
-    "$docker_bin" network create --driver bridge --internal "$network" >/dev/null
-  else
-    "$docker_bin" network create --driver bridge "$network" >/dev/null
-  fi
-  echo "已创建网络: $network"
-}
-
 container_health() {
   "$docker_bin" inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$1"
 }
@@ -129,87 +104,36 @@ wait_healthy() {
   fail "$label 未在 ${health_timeout}s 内变为 healthy"
 }
 
-find_existing_atrust() {
-  candidates=$("$docker_bin" ps -aq --filter "network=$atrust_client_network" \
-    --filter name=atrust-gateway)
-  fallback=
-  for candidate in $candidates; do
-    [ -n "$fallback" ] || fallback=$candidate
-    status=$("$docker_bin" inspect --format '{{.State.Status}}' "$candidate" 2>/dev/null || true)
-    health=$(container_health "$candidate" 2>/dev/null || true)
-    if [ "$status" = running ] && [ "$health" = healthy ]; then
-      printf '%s\n' "$candidate"
-      return
-    fi
-  done
-  printf '%s\n' "$fallback"
-}
-
-ensure_atrust() {
-  container=$(find_existing_atrust)
-  if [ -z "$container" ]; then
-    echo "未发现 aTrust 网关，开始创建"
-    atrust_compose up -d --no-deps atrust-gateway
-    container=$(atrust_compose ps -q atrust-gateway)
-    [ -n "$container" ] || fail "aTrust Compose 未返回容器 ID"
-  else
-    status=$("$docker_bin" inspect --format '{{.State.Status}}' "$container")
-    health=$(container_health "$container")
-    if [ "$status" = running ] && [ "$health" = healthy ]; then
-      echo "依赖已存在且健康，跳过 aTrust 创建: $container"
-      return
-    fi
-    if [ "$status" = running ]; then
-      echo "aTrust 已存在但不健康，执行重启: $container"
-      "$docker_bin" restart "$container" >/dev/null
-    else
-      echo "aTrust 已存在但未运行，执行启动: $container"
-      "$docker_bin" start "$container" >/dev/null
-    fi
-  fi
-  wait_healthy "$container" "aTrust 网关"
-}
-
 require_file "$env_file"
 require_file "$provider_compose_file"
 require_file "$provider_override_file"
-require_file "$atrust_compose_file"
 
 academic_image=$(resolve_setting CAMPUS_ACADEMIC_IMAGE)
-atrust_image=$(resolve_setting CAMPUS_ATRUST_IMAGE)
 bootstrap_file=$(resolve_setting CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE)
 provider_config_file=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE)
 rpc_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR)
 provider_redis_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR)
-atrust_username_file=$(resolve_setting CAMPUS_ATRUST_USERNAME_FILE)
-atrust_password_file=$(resolve_setting CAMPUS_ATRUST_PASSWORD_FILE)
-atrust_client_network=$(resolve_setting CAMPUS_ATRUST_CLIENT_NETWORK)
-atrust_egress_network=$(resolve_setting CAMPUS_ATRUST_EGRESS_NETWORK)
+atrust_gateway_home=$(resolve_setting CAMPUS_ATRUST_GATEWAY_HOME)
 
 [ -n "$academic_image" ] || fail "未配置 CAMPUS_ACADEMIC_IMAGE"
-[ -n "$atrust_image" ] || fail "未配置 CAMPUS_ATRUST_IMAGE"
 [ -n "$bootstrap_file" ] || fail "未配置 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE"
 [ -n "$provider_config_file" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE"
 [ -n "$rpc_tls_host_dir" ] || fail "未配置 CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR"
 [ -n "$provider_redis_tls_host_dir" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR"
-[ -n "$atrust_username_file" ] || fail "未配置 CAMPUS_ATRUST_USERNAME_FILE"
-[ -n "$atrust_password_file" ] || fail "未配置 CAMPUS_ATRUST_PASSWORD_FILE"
-atrust_client_network=${atrust_client_network:-campus-atrust-clients}
-atrust_egress_network=${atrust_egress_network:-campus-atrust-egress}
-
+[ -n "$atrust_gateway_home" ] || fail "未配置 CAMPUS_ATRUST_GATEWAY_HOME"
 require_absolute CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE "$bootstrap_file"
 require_absolute CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE "$provider_config_file"
 require_absolute CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR "$rpc_tls_host_dir"
 require_absolute CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR "$provider_redis_tls_host_dir"
-require_absolute CAMPUS_ATRUST_USERNAME_FILE "$atrust_username_file"
-require_absolute CAMPUS_ATRUST_PASSWORD_FILE "$atrust_password_file"
+require_absolute CAMPUS_ATRUST_GATEWAY_HOME "$atrust_gateway_home"
 
 require_file "$bootstrap_file"
 require_file "$provider_config_file"
 require_directory "$rpc_tls_host_dir"
 require_directory "$provider_redis_tls_host_dir"
-require_secret_file "$atrust_username_file"
-require_secret_file "$atrust_password_file"
+require_file "$atrust_gateway_home/scripts/ensure-gateway.sh"
+[ -x "$atrust_gateway_home/scripts/ensure-gateway.sh" ] || \
+  fail "独立 aTrust 发布器不可执行: $atrust_gateway_home/scripts/ensure-gateway.sh"
 
 [ "$(yaml_value "$bootstrap_file" environment)" = "$environment" ] || \
   fail "bootstrap environment 与发布环境不一致"
@@ -236,18 +160,15 @@ active_provider=$(yaml_value "$provider_config_file" active_provider)
 if [ "$environment" = production ]; then
   [ "$active_provider" = ouc ] || fail "Production 禁止使用 Mock Provider"
   case "$academic_image" in *@sha256:*) ;; *) fail "Production Academic 镜像必须使用 sha256 摘要" ;; esac
-  case "$atrust_image" in *@sha256:*) ;; *) fail "Production aTrust 镜像必须使用 sha256 摘要" ;; esac
 else
   case "$active_provider" in mock|ouc) ;; *) fail "Review Provider 必须为 mock 或 ouc" ;; esac
 fi
 
 "$docker_bin" compose version >/dev/null
 provider_compose config --quiet
-atrust_compose config --quiet
 
-ensure_network "$atrust_client_network" true
-ensure_network "$atrust_egress_network" false
-ensure_atrust
+echo "调用独立 campus-atrust-gateway 依赖发布器"
+ATRUST_ENV_FILE="$env_file" "$atrust_gateway_home/scripts/ensure-gateway.sh" "$environment"
 
 echo "开始发布 Academic Provider"
 provider_compose up -d --no-deps --no-build academic-provider

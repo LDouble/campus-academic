@@ -95,6 +95,15 @@ exit 1
 FAKE
 chmod +x "$test_root/docker"
 
+mkdir -p "$test_root/gateway-home/scripts"
+cat >"$test_root/gateway-home/scripts/ensure-gateway.sh" <<'EOF'
+#!/bin/sh
+set -eu
+printf '%s|%s\n' "$1" "$ATRUST_ENV_FILE" >"$TEST_GATEWAY_LOG"
+echo 'independent gateway ensured'
+EOF
+chmod +x "$test_root/gateway-home/scripts/ensure-gateway.sh"
+
 cat >"$test_root/bootstrap.yaml" <<'YAML'
 environment: production
 provider_config_file: /etc/campus-academic/provider-config.yaml
@@ -128,6 +137,7 @@ done
 cat >"$test_root/provider.env" <<EOF
 CAMPUS_ACADEMIC_IMAGE=registry.example/academic@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 CAMPUS_ATRUST_IMAGE=registry.example/atrust@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+CAMPUS_ATRUST_GATEWAY_HOME=$test_root/gateway-home
 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE=$test_root/bootstrap.yaml
 CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE=$test_root/provider-config.yaml
 CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR=$test_root/rpc-tls
@@ -145,36 +155,15 @@ run_deploy() {
   PROVIDER_ENV_FILE=$test_root/provider.env \
   PROVIDER_DEPENDENCY_HEALTH_TIMEOUT=1 \
   PROVIDER_DEPENDENCY_HEALTH_INTERVAL=1 \
+  TEST_GATEWAY_LOG=$test_root/gateway.log \
   "$repo_root/scripts/deploy-provider.sh" production
 }
 
 first_output=$(run_deploy)
-printf '%s' "$first_output" | grep -q '已创建网络: test-atrust-clients'
-printf '%s' "$first_output" | grep -q '未发现 aTrust 网关，开始创建'
+printf '%s' "$first_output" | grep -q '调用独立 campus-atrust-gateway 依赖发布器'
+printf '%s' "$first_output" | grep -q 'independent gateway ensured'
 printf '%s' "$first_output" | grep -q 'production Provider 发布完成'
-
-: >"$fake_log"
-second_output=$(run_deploy)
-printf '%s' "$second_output" | grep -q '依赖已存在，跳过创建网络: test-atrust-clients'
-printf '%s' "$second_output" | grep -q '依赖已存在且健康，跳过 aTrust 创建: atrust-id'
-if grep -q 'up -d --no-deps atrust-gateway' "$fake_log"; then
-  echo '健康的 aTrust 不应被重复创建' >&2
-  exit 1
-fi
-
-printf 'exited' >"$fake_state/atrust.status"
-printf 'unhealthy' >"$fake_state/atrust.health"
-: >"$fake_log"
-stopped_output=$(run_deploy)
-printf '%s' "$stopped_output" | grep -q 'aTrust 已存在但未运行，执行启动: atrust-id'
-grep -q '^start atrust-id$' "$fake_log"
-
-printf 'running' >"$fake_state/atrust.status"
-printf 'unhealthy' >"$fake_state/atrust.health"
-: >"$fake_log"
-unhealthy_output=$(run_deploy)
-printf '%s' "$unhealthy_output" | grep -q 'aTrust 已存在但不健康，执行重启: atrust-id'
-grep -q '^restart atrust-id$' "$fake_log"
+grep -q "^production|$test_root/provider.env$" "$test_root/gateway.log"
 
 sed 's/active_provider: ouc/active_provider: mock/' "$test_root/provider-config.yaml" >"$test_root/provider-config.mock.yaml"
 sed "s#provider-config.yaml#provider-config.mock.yaml#" "$test_root/provider.env" >"$test_root/provider.mock.env"
@@ -185,5 +174,15 @@ if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root
   exit 1
 fi
 grep -q 'Production 禁止使用 Mock Provider' "$test_root/mock.out"
+
+sed "s#CAMPUS_ATRUST_GATEWAY_HOME=.*#CAMPUS_ATRUST_GATEWAY_HOME=$test_root/missing-gateway#" \
+  "$test_root/provider.env" >"$test_root/provider.missing-gateway.env"
+if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  PROVIDER_ENV_FILE=$test_root/provider.missing-gateway.env \
+  "$repo_root/scripts/deploy-provider.sh" production >"$test_root/missing.out" 2>&1; then
+  echo '缺失的独立 aTrust 仓库未被拒绝' >&2
+  exit 1
+fi
+grep -q 'scripts/ensure-gateway.sh' "$test_root/missing.out"
 
 echo 'deploy-provider tests passed'
