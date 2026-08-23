@@ -40,6 +40,7 @@ services:
       start_period: 20s
 
   academic-provider:
+    image: "${CAMPUS_ACADEMIC_IMAGE:-campus-academic:local}"
     build:
       context: ..
       dockerfile: Dockerfile
@@ -68,10 +69,10 @@ services:
       CAMPUS_ACADEMIC_PROVIDER_KEY: ${CAMPUS_ACADEMIC_PROVIDER_KEY:?set provider key}
       CAMPUS_ACADEMIC_QUERY_KEY: ${CAMPUS_ACADEMIC_QUERY_KEY:?set query key}
     volumes:
-      - ../bootstrap.yaml:/etc/campus-academic/bootstrap.yaml:ro
-      - ../provider-config.yaml:/app/provider-config.yaml:ro
+      - ${CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE:-../bootstrap.yaml}:/etc/campus-academic/bootstrap.yaml:ro
+      - ${CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE:-../provider-config.yaml}:/app/provider-config.yaml:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/health/live"]
+      test: ["CMD", "/app/academic-provider", "healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 12

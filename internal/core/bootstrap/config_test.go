@@ -31,6 +31,9 @@ analytics:
 	if cfg.Provider.ListenAddress != ":9090" {
 		t.Fatalf("provider listen address = %q, want :9090", cfg.Provider.ListenAddress)
 	}
+	if cfg.Provider.Target != "127.0.0.1:9090" {
+		t.Fatalf("provider target = %q, want healthcheck loopback target", cfg.Provider.Target)
+	}
 	if cfg.Analytics.MySQL.DSN != "" || cfg.Analytics.SourceDSN != "" {
 		t.Fatalf("provider loader unexpectedly populated analytics credentials: %+v", cfg.Analytics)
 	}
@@ -105,6 +108,20 @@ func TestRedisEnvironmentOverrides(t *testing.T) {
 	}
 }
 
+func TestProviderTargetEnvironmentOverride(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_PROVIDER_TARGET", "academic-provider.internal:9090")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	cfg, err := LoadProvider(path)
+	if err != nil {
+		t.Fatalf("LoadProvider() error = %v", err)
+	}
+	if cfg.Provider.Target != "academic-provider.internal:9090" {
+		t.Fatalf("provider target = %q", cfg.Provider.Target)
+	}
+}
+
 func TestProductionRedisRequiresTLS(t *testing.T) {
 	setEmptyAcademicEnvironment(t)
 	t.Setenv("CAMPUS_ACADEMIC_PROVIDER_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
@@ -142,6 +159,7 @@ func setEmptyAcademicEnvironment(t *testing.T) {
 		"CAMPUS_ACADEMIC_ANALYTICS_DSN",
 		"CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN",
 		"CAMPUS_ACADEMIC_PROVIDER_LISTEN",
+		"CAMPUS_ACADEMIC_PROVIDER_TARGET",
 		"CAMPUS_ACADEMIC_ANALYTICS_LISTEN",
 		"CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS",
 		"CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME",

@@ -12,6 +12,8 @@
 Analytics 副本必须共享另一个 Analytics Redis；两类服务之间禁止共用 Redis。
 生产组网、TLS 参数和迁移步骤见
 [`docs/multi-instance-deployment.md`](docs/multi-instance-deployment.md)。
+Provider 的 aTrust 依赖和幂等发布方式见
+[`docs/operations.md`](docs/operations.md#provider-自动化发布)。
 
 ## 本地启动
 

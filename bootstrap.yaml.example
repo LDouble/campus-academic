@@ -5,6 +5,7 @@ provider_config_file: provider-config.yaml
 
 provider:
   listen_address: ":9090"
+  target: 127.0.0.1:9090
   insecure: true
   max_concurrent: 32
   queue_wait: 250ms

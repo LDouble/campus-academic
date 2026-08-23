@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet fmt generate generate-check migration-up
+.PHONY: build test test-race vet fmt generate generate-check migration-up production review test-deploy
 
 BUF ?= go run github.com/bufbuild/buf/cmd/buf@v1.61.0
 
@@ -30,3 +30,12 @@ generate-check:
 
 migration-up:
 	go run ./cmd/academicctl migrate up
+
+production:
+	./scripts/deploy-provider.sh production
+
+review:
+	./scripts/deploy-provider.sh review
+
+test-deploy:
+	./scripts/tests/deploy-provider_test.sh

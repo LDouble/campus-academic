@@ -1,0 +1,88 @@
+name: campus-academic-atrust
+
+services:
+  atrust-gateway:
+    image: "${CAMPUS_ATRUST_IMAGE:?set CAMPUS_ATRUST_IMAGE}"
+    restart: unless-stopped
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
+    cpus: "${CAMPUS_ATRUST_CPUS:-1.5}"
+    mem_limit: "${CAMPUS_ATRUST_MEMORY_LIMIT:-768m}"
+    pids_limit: "${CAMPUS_ATRUST_PIDS_LIMIT:-768}"
+    sysctls:
+      net.ipv4.conf.default.route_localnet: "1"
+    environment:
+      TZ: Asia/Shanghai
+      PING_ADDR_URL: "${CAMPUS_ATRUST_PING_ADDR_URL:-https://wljf.ouc.edu.cn/}"
+      PING_INTERVAL: "${CAMPUS_ATRUST_PING_INTERVAL:-300}"
+      CAMPUS_ATRUST_CAS_LOGIN_URL: "${CAMPUS_ATRUST_CAS_LOGIN_URL:-https://otrust.ouc.edu.cn/passport/v1/public/casLogin?sfDomain=ouc.edu.cn}"
+      CAMPUS_ATRUST_LOGIN_INTERVAL: "${CAMPUS_ATRUST_LOGIN_INTERVAL:-60}"
+      CAMPUS_ATRUST_LOGIN_FAILURE_LIMIT: "${CAMPUS_ATRUST_LOGIN_FAILURE_LIMIT:-3}"
+      CAMPUS_ATRUST_ONLINE_TIMEOUT: "${CAMPUS_ATRUST_ONLINE_TIMEOUT:-45}"
+      CAMPUS_ATRUST_AGENT_WAIT_TIMEOUT: "${CAMPUS_ATRUST_AGENT_WAIT_TIMEOUT:-30}"
+      CAMPUS_ATRUST_HEALTHCHECK_URL: "${CAMPUS_ATRUST_HEALTHCHECK_URL:-https://wljf.ouc.edu.cn/}"
+      CAMPUS_ATRUST_STOP_ELECTRON_AFTER_READY: "${CAMPUS_ATRUST_STOP_ELECTRON_AFTER_READY:-true}"
+      CAMPUS_ATRUST_ELECTRON_READY_INTERVAL: "${CAMPUS_ATRUST_ELECTRON_READY_INTERVAL:-5}"
+      CAMPUS_ATRUST_ELECTRON_HEALTH_INTERVAL: "${CAMPUS_ATRUST_ELECTRON_HEALTH_INTERVAL:-30}"
+      CAMPUS_ATRUST_ELECTRON_HEALTH_FAILURE_LIMIT: "${CAMPUS_ATRUST_ELECTRON_HEALTH_FAILURE_LIMIT:-3}"
+      CAMPUS_ATRUST_ELECTRON_TERM_GRACE_PERIOD: "${CAMPUS_ATRUST_ELECTRON_TERM_GRACE_PERIOD:-5}"
+      CAMPUS_ATRUST_TRAY_CRASH_WINDOW: "${CAMPUS_ATRUST_TRAY_CRASH_WINDOW:-300}"
+      CAMPUS_ATRUST_TRAY_CRASH_THRESHOLD: "${CAMPUS_ATRUST_TRAY_CRASH_THRESHOLD:-30}"
+      CAMPUS_ATRUST_TINYPROXY_MAX_CLIENTS: "${CAMPUS_ATRUST_TINYPROXY_MAX_CLIENTS:-200}"
+      CAMPUS_ATRUST_TINYPROXY_TIMEOUT: "${CAMPUS_ATRUST_TINYPROXY_TIMEOUT:-45}"
+      CAMPUS_ATRUST_USERNAME_FILE: /run/secrets/atrust-username
+      CAMPUS_ATRUST_PASSWORD_FILE: /run/secrets/atrust-password
+    secrets:
+      - atrust-username
+      - atrust-password
+    volumes:
+      - atrust-root:/root
+      - atrust-state:/usr/share/sangfor/.aTrust
+      - atrust-logs:/usr/share/sangfor/aTrust/resources/logs
+    tmpfs:
+      - /usr/share/sangfor/.aTrust/Crash:size=16m,mode=0700
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - "127.0.0.1:${CAMPUS_ATRUST_HEALTH_PORT:-54631}:54631"
+    networks:
+      atrust-clients:
+        aliases:
+          - atrust-gateway
+      atrust-egress: {}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - campus-atrust-shell-login.sh healthcheck || exit 1
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 90s
+
+networks:
+  atrust-clients:
+    external: true
+    name: "${CAMPUS_ATRUST_CLIENT_NETWORK:-campus-atrust-clients}"
+  atrust-egress:
+    external: true
+    name: "${CAMPUS_ATRUST_EGRESS_NETWORK:-campus-atrust-egress}"
+
+volumes:
+  atrust-root: {}
+  atrust-state: {}
+  atrust-logs: {}
+
+secrets:
+  atrust-username:
+    file: "${CAMPUS_ATRUST_USERNAME_FILE:?set CAMPUS_ATRUST_USERNAME_FILE}"
+  atrust-password:
+    file: "${CAMPUS_ATRUST_PASSWORD_FILE:?set CAMPUS_ATRUST_PASSWORD_FILE}"

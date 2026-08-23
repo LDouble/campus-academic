@@ -212,6 +212,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.Provider.ListenAddress == "" {
 		cfg.Provider.ListenAddress = ":9090"
 	}
+	if cfg.Provider.Target == "" {
+		cfg.Provider.Target = "127.0.0.1:9090"
+	}
 	if cfg.Analytics.ListenAddress == "" {
 		cfg.Analytics.ListenAddress = ":9091"
 	}
@@ -293,6 +296,7 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Environment, "CAMPUS_ACADEMIC_ENV")
 	setString(&cfg.Release, "CAMPUS_RELEASE")
 	setString(&cfg.Provider.ListenAddress, "CAMPUS_ACADEMIC_PROVIDER_LISTEN")
+	setString(&cfg.Provider.Target, "CAMPUS_ACADEMIC_PROVIDER_TARGET")
 	setString(&cfg.ProviderConfigFile, "CAMPUS_ACADEMIC_PROVIDER_CONFIG_FILE")
 	setString(&cfg.Redis.Address, "CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS")
 	setString(&cfg.Redis.Username, "CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME")
