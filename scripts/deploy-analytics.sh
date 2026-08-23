@@ -92,7 +92,7 @@ wait_healthy() {
 }
 
 wait_migration() {
-  container=$(analytics_compose ps -q analytics-migrate)
+  container=$(analytics_compose ps -a -q analytics-migrate)
   [ -n "$container" ] || fail "Analytics 迁移 Compose 未返回容器 ID"
   status=$("$docker_bin" inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)
   exit_code=$("$docker_bin" inspect --format '{{.State.ExitCode}}' "$container" 2>/dev/null || true)

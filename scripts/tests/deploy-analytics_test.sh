@@ -132,6 +132,7 @@ printf '%s' "$output" | grep -q 'production Analytics 发布完成'
 printf '%s' "$output" | grep -q 'Academic Analytics gRPC healthcheck 已健康'
 grep -q 'up -d --no-build analytics-mysql analytics-redis' "$fake_log"
 grep -q 'up --no-build --no-deps --abort-on-container-exit analytics-migrate' "$fake_log"
+grep -q 'ps -a -q analytics-migrate' "$fake_log"
 grep -q 'up -d --no-build --no-deps academic-analytics' "$fake_log"
 grep -q "inspect --format .*State.Health.* academic-analytics-id" "$fake_log"
 if grep -Eq 'academic-provider|provider-redis|atrust' "$fake_log"; then
