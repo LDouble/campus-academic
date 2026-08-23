@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,6 +66,7 @@ type ProviderConfig struct {
 // queue Redis and gRPC server. SourceDSN is environment-only by design.
 type AnalyticsConfig struct {
 	ListenAddress     string        `yaml:"listen_address"`
+	Target            string        `yaml:"target"`
 	Insecure          bool          `yaml:"insecure"`
 	TLSFilesRoot      string        `yaml:"tls_files_root"`
 	CAFile            string        `yaml:"ca_file"`
@@ -95,9 +98,16 @@ type MySQLConfig struct {
 
 // RedisConfig contains one service-owned Redis connection.
 type RedisConfig struct {
-	Address  string `yaml:"address"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+	Address        string `yaml:"address"`
+	Username       string `yaml:"username"`
+	Password       string `yaml:"password"`
+	DB             int    `yaml:"db"`
+	TLS            bool   `yaml:"tls"`
+	TLSFilesRoot   string `yaml:"tls_files_root"`
+	CAFile         string `yaml:"ca_file"`
+	ClientCertFile string `yaml:"client_cert_file"`
+	ClientKeyFile  string `yaml:"client_key_file"`
+	ServerName     string `yaml:"server_name"`
 }
 
 // AcademicQueryConfig controls encrypted provider query caching and limits.
@@ -181,7 +191,9 @@ func load(path string, service component) (Config, error) {
 		return Config{}, fmt.Errorf("decode campus-academic bootstrap: %w", err)
 	}
 	applyDefaults(&cfg)
-	applyEnvironment(&cfg)
+	if err := applyEnvironment(&cfg); err != nil {
+		return Config{}, err
+	}
 	if err := loadSecrets(&cfg, service); err != nil {
 		return Config{}, err
 	}
@@ -201,14 +213,20 @@ func applyDefaults(cfg *Config) {
 	if cfg.Provider.ListenAddress == "" {
 		cfg.Provider.ListenAddress = ":9090"
 	}
+	if cfg.Provider.Target == "" {
+		cfg.Provider.Target = "127.0.0.1:9090"
+	}
 	if cfg.Analytics.ListenAddress == "" {
 		cfg.Analytics.ListenAddress = ":9091"
+	}
+	if cfg.Analytics.Target == "" {
+		cfg.Analytics.Target = "127.0.0.1:9091"
 	}
 	if cfg.Redis.Address == "" {
 		cfg.Redis.Address = "127.0.0.1:6379"
 	}
 	if cfg.Analytics.Redis.Address == "" {
-		cfg.Analytics.Redis = cfg.Redis
+		cfg.Analytics.Redis.Address = "127.0.0.1:6380"
 	}
 	if cfg.Observability.MetricsAddress == "" {
 		cfg.Observability.MetricsAddress = ":9300"
@@ -278,25 +296,78 @@ func applyDefaults(cfg *Config) {
 	}
 }
 
-func applyEnvironment(cfg *Config) {
+func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Environment, "CAMPUS_ACADEMIC_ENV")
 	setString(&cfg.Release, "CAMPUS_RELEASE")
 	setString(&cfg.Provider.ListenAddress, "CAMPUS_ACADEMIC_PROVIDER_LISTEN")
+	setString(&cfg.Provider.Target, "CAMPUS_ACADEMIC_PROVIDER_TARGET")
 	setString(&cfg.ProviderConfigFile, "CAMPUS_ACADEMIC_PROVIDER_CONFIG_FILE")
 	setString(&cfg.Redis.Address, "CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS")
+	setString(&cfg.Redis.Username, "CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME")
 	setString(&cfg.Redis.Password, "CAMPUS_ACADEMIC_PROVIDER_REDIS_PASSWORD")
+	if err := setInt(&cfg.Redis.DB, "CAMPUS_ACADEMIC_PROVIDER_REDIS_DB"); err != nil {
+		return err
+	}
+	if err := setBool(&cfg.Redis.TLS, "CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS"); err != nil {
+		return err
+	}
+	setString(&cfg.Redis.TLSFilesRoot, "CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_FILES_ROOT")
+	setString(&cfg.Redis.CAFile, "CAMPUS_ACADEMIC_PROVIDER_REDIS_CA_FILE")
+	setString(&cfg.Redis.ClientCertFile, "CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_CERT_FILE")
+	setString(&cfg.Redis.ClientKeyFile, "CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_KEY_FILE")
+	setString(&cfg.Redis.ServerName, "CAMPUS_ACADEMIC_PROVIDER_REDIS_SERVER_NAME")
 	setString(&cfg.Analytics.ListenAddress, "CAMPUS_ACADEMIC_ANALYTICS_LISTEN")
+	setString(&cfg.Analytics.Target, "CAMPUS_ACADEMIC_ANALYTICS_TARGET")
 	setString(&cfg.Analytics.MySQL.DSN, "CAMPUS_ACADEMIC_ANALYTICS_DSN")
 	setString(&cfg.Analytics.SourceDSN, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN")
 	setString(&cfg.Analytics.Redis.Address, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS")
+	setString(&cfg.Analytics.Redis.Username, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME")
 	setString(&cfg.Analytics.Redis.Password, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD")
+	if err := setInt(&cfg.Analytics.Redis.DB, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_DB"); err != nil {
+		return err
+	}
+	if err := setBool(&cfg.Analytics.Redis.TLS, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS"); err != nil {
+		return err
+	}
+	setString(&cfg.Analytics.Redis.TLSFilesRoot, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_FILES_ROOT")
+	setString(&cfg.Analytics.Redis.CAFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE")
+	setString(&cfg.Analytics.Redis.ClientCertFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE")
+	setString(&cfg.Analytics.Redis.ClientKeyFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE")
+	setString(&cfg.Analytics.Redis.ServerName, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME")
 	setString(&cfg.Observability.MetricsAddress, "CAMPUS_ACADEMIC_METRICS_ADDRESS")
+	return nil
 }
 
 func setString(target *string, name string) {
 	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
 		*target = value
 	}
+}
+
+func setInt(target *int, name string) error {
+	value, configured := os.LookupEnv(name)
+	if !configured || strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return fmt.Errorf("%s must be an integer", name)
+	}
+	*target = parsed
+	return nil
+}
+
+func setBool(target *bool, name string) error {
+	value, configured := os.LookupEnv(name)
+	if !configured || strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return fmt.Errorf("%s must be a boolean", name)
+	}
+	*target = parsed
+	return nil
 }
 
 func loadSecrets(cfg *Config, service component) error {
@@ -373,8 +444,43 @@ func validate(cfg Config, service component) error {
 	if service != componentProvider && cfg.Environment == EnvironmentProduction && (strings.TrimSpace(cfg.Analytics.MySQL.DSN) == "" || strings.TrimSpace(cfg.Analytics.SourceDSN) == "") {
 		return errors.New("production analytics database and source DSN are required")
 	}
+	if service != componentAnalytics {
+		if err := validateRedisConfig("provider", cfg.Redis, cfg.UsesProductionSafeguards()); err != nil {
+			return err
+		}
+	}
+	if service != componentProvider {
+		if err := validateRedisConfig("analytics", cfg.Analytics.Redis, cfg.UsesProductionSafeguards()); err != nil {
+			return err
+		}
+	}
 	if cfg.Analytics.MinimumSampleSize < 1 {
 		return errors.New("analytics minimum sample size must be positive")
+	}
+	return nil
+}
+
+func validateRedisConfig(name string, config RedisConfig, requireTLS bool) error {
+	if strings.TrimSpace(config.Address) == "" {
+		return fmt.Errorf("%s Redis address is required", name)
+	}
+	if config.DB < 0 {
+		return fmt.Errorf("%s Redis DB must not be negative", name)
+	}
+	if requireTLS && !config.TLS {
+		return fmt.Errorf("review/production %s Redis must use TLS", name)
+	}
+	if !config.TLS {
+		return nil
+	}
+	if strings.TrimSpace(config.TLSFilesRoot) == "" || strings.TrimSpace(config.CAFile) == "" || strings.TrimSpace(config.ServerName) == "" {
+		return fmt.Errorf("%s Redis TLS files root, CA file and server name are required", name)
+	}
+	if !filepath.IsAbs(config.TLSFilesRoot) {
+		return fmt.Errorf("%s Redis TLS files root must be absolute", name)
+	}
+	if (strings.TrimSpace(config.ClientCertFile) == "") != (strings.TrimSpace(config.ClientKeyFile) == "") {
+		return fmt.Errorf("%s Redis client certificate and key must be configured together", name)
 	}
 	return nil
 }

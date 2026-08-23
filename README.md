@@ -8,6 +8,17 @@
 
 平台 API 仓库只保留 HTTP、身份与权限，并通过 mTLS gRPC 调用本仓服务。Provider 与 Analytics 使用不同的 Redis；Analytics 写入自己的 MySQL，成绩源通过只读 DSN 接入。
 
+仓库构建两个独立镜像：`Dockerfile.provider` 只打包 Provider，
+`Dockerfile.analytics` 打包 Analytics 及其数据库迁移工具。两份制品可独立发布、扩容和回滚，
+但继续共享本仓库中的版本化 gRPC 契约。
+
+多实例部署时，所有 Provider 副本必须共享同一个 Provider Redis，所有
+Analytics 副本必须共享另一个 Analytics Redis；两类服务之间禁止共用 Redis。
+生产组网、TLS 参数和迁移步骤见
+[`docs/multi-instance-deployment.md`](docs/multi-instance-deployment.md)。
+Provider 的 aTrust 依赖和幂等发布方式见
+[`docs/operations.md`](docs/operations.md#provider-自动化发布)。
+
 ## 本地启动
 
 ```bash
@@ -16,6 +27,17 @@ cp provider-config.yaml.example provider-config.yaml
 go mod download
 go test ./...
 ```
+
+补齐 Compose 原有的数据库、成绩源和密钥环境变量后，使用本地 Redis 时必须
+显式启用 `local` profile：
+
+```bash
+docker compose -f deploy/compose.yaml --profile local up -d
+```
+
+未启用 `local` profile 时，Compose 不会启动本地 Redis，Provider 与 Analytics
+分别使用 `CAMPUS_ACADEMIC_PROVIDER_REDIS_*` 和
+`CAMPUS_ACADEMIC_ANALYTICS_REDIS_*` 指向的外部服务。
 
 启动 Provider：
 

@@ -1,0 +1,88 @@
+# Analytics 独立主机 Compose。此文件刻意不定义 Provider、aTrust 或 Provider Redis。
+services:
+  analytics-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    environment:
+      REDISCLI_AUTH: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME:-default}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME}
+    volumes:
+      - ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CONFIG_HOST_FILE:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_CONFIG_HOST_FILE}:/etc/redis/redis.conf:ro
+      - ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_HOST_DIR:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_HOST_DIR}:/run/secrets/analytics-redis:ro
+      - analytics-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "set -eu; args=\"--tls --cacert /run/secrets/analytics-redis/$${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE} --sni $${CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME}\"; if [ -n \"$${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE}\" ]; then args=\"$$args --cert /run/secrets/analytics-redis/$${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE} --key /run/secrets/analytics-redis/$${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE}\"; fi; redis-cli $$args --user \"$${CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME}\" ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  analytics-mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: campus_academic
+      MYSQL_USER: campus_academic
+      MYSQL_PASSWORD: ${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${CAMPUS_ACADEMIC_DB_ROOT_PASSWORD:?set CAMPUS_ACADEMIC_DB_ROOT_PASSWORD}
+    volumes:
+      - analytics-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  analytics-migrate:
+    image: ${CAMPUS_ACADEMIC_ANALYTICS_IMAGE:?set CAMPUS_ACADEMIC_ANALYTICS_IMAGE}
+    entrypoint: ["/app/academicctl"]
+    command: ["migrate", "up"]
+    depends_on:
+      analytics-mysql:
+        condition: service_healthy
+    environment:
+      CAMPUS_ACADEMIC_MIGRATION_URL: "mysql://campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?multiStatements=true"
+
+  academic-analytics:
+    image: ${CAMPUS_ACADEMIC_ANALYTICS_IMAGE:?set CAMPUS_ACADEMIC_ANALYTICS_IMAGE}
+    ports:
+      - "${CAMPUS_ACADEMIC_ANALYTICS_BIND_ADDRESS:-0.0.0.0}:9091:9091"
+    depends_on:
+      analytics-migrate:
+        condition: service_completed_successfully
+      analytics-mysql:
+        condition: service_healthy
+      analytics-redis:
+        condition: service_healthy
+    environment:
+      CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
+      CAMPUS_ACADEMIC_ANALYTICS_LISTEN: ":9091"
+      CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
+      CAMPUS_ACADEMIC_ANALYTICS_DSN: "campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?parseTime=true"
+      CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN: ${CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN:?set read-only source DSN}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS: analytics-redis:6379
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME:-default}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_DB: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_DB:-0}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS: "true"
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_FILES_ROOT: /run/secrets/analytics-redis
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME}
+    volumes:
+      - ${CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE:?set CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE}:/etc/campus-academic/bootstrap.yaml:ro
+      - ${CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR:?set CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR}:/run/secrets/academic-rpc:ro
+      - ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_HOST_DIR:?set CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_HOST_DIR}:/run/secrets/analytics-redis:ro
+    healthcheck:
+      test: ["CMD", "/app/academic-analytics", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  analytics-redis:
+  analytics-mysql:

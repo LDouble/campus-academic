@@ -1,6 +1,7 @@
 services:
   provider-redis:
     image: redis:7-alpine
+    profiles: ["local"]
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - provider-redis:/data
@@ -12,6 +13,7 @@ services:
 
   analytics-redis:
     image: redis:7-alpine
+    profiles: ["local"]
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - analytics-redis:/data
@@ -38,36 +40,47 @@ services:
       start_period: 20s
 
   academic-provider:
+    image: "${CAMPUS_ACADEMIC_PROVIDER_IMAGE:-campus-academic-provider:local}"
     build:
       context: ..
-      dockerfile: Dockerfile
-    command: ["/app/academic-provider"]
+      dockerfile: Dockerfile.provider
     ports:
       - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:9090:9090"
     depends_on:
       provider-redis:
         condition: service_healthy
+        required: false
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
+      CAMPUS_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
       CAMPUS_ACADEMIC_PROVIDER_LISTEN: ":9090"
       CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
-      CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS: provider-redis:6379
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS:-provider-redis:6379}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_PASSWORD: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_PASSWORD:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_DB: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_DB:-0}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS:-false}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_FILES_ROOT: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_FILES_ROOT:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_CA_FILE: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_CA_FILE:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_CERT_FILE: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_CERT_FILE:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_KEY_FILE: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_CLIENT_KEY_FILE:-}
+      CAMPUS_ACADEMIC_PROVIDER_REDIS_SERVER_NAME: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_SERVER_NAME:-}
       CAMPUS_ACADEMIC_PROVIDER_KEY: ${CAMPUS_ACADEMIC_PROVIDER_KEY:?set provider key}
       CAMPUS_ACADEMIC_QUERY_KEY: ${CAMPUS_ACADEMIC_QUERY_KEY:?set query key}
     volumes:
-      - ../bootstrap.yaml:/etc/campus-academic/bootstrap.yaml:ro
-      - ../provider-config.yaml:/app/provider-config.yaml:ro
+      - ${CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE:-../bootstrap.yaml}:/etc/campus-academic/bootstrap.yaml:ro
+      - ${CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE:-../provider-config.yaml}:/app/provider-config.yaml:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/health/live"]
+      test: ["CMD", "/app/academic-provider", "healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 12
 
   academic-analytics:
+    image: "${CAMPUS_ACADEMIC_ANALYTICS_IMAGE:-campus-academic-analytics:local}"
     build:
       context: ..
-      dockerfile: Dockerfile
-    command: ["/app/academic-analytics"]
+      dockerfile: Dockerfile.analytics
     ports:
       - "${CAMPUS_ACADEMIC_ANALYTICS_BIND_ADDRESS:-0.0.0.0}:9091:9091"
     depends_on:
@@ -77,26 +90,38 @@ services:
         condition: service_healthy
       analytics-redis:
         condition: service_healthy
+        required: false
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
       CAMPUS_ACADEMIC_ANALYTICS_LISTEN: ":9091"
       CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
       CAMPUS_ACADEMIC_ANALYTICS_DSN: "campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?parseTime=true"
       CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN: ${CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN:?set read-only source DSN}
-      CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS: analytics-redis:6379
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS:-analytics-redis:6379}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_DB: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_DB:-0}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS:-false}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_FILES_ROOT: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_FILES_ROOT:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE:-}
+      CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME: ${CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME:-}
     volumes:
       - ../bootstrap.yaml:/etc/campus-academic/bootstrap.yaml:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/health/live"]
+      test: ["CMD", "/app/academic-analytics", "healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 12
 
   analytics-migrate:
+    image: "${CAMPUS_ACADEMIC_ANALYTICS_IMAGE:-campus-academic-analytics:local}"
     build:
       context: ..
-      dockerfile: Dockerfile
-    command: ["/app/academicctl", "migrate", "up"]
+      dockerfile: Dockerfile.analytics
+    entrypoint: ["/app/academicctl"]
+    command: ["migrate", "up"]
     depends_on:
       analytics-mysql:
         condition: service_healthy
