@@ -45,7 +45,7 @@ services:
       context: ..
       dockerfile: Dockerfile.provider
     ports:
-      - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:9090:9090"
+      - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090"
     depends_on:
       provider-redis:
         condition: service_healthy
@@ -82,7 +82,7 @@ services:
       context: ..
       dockerfile: Dockerfile.analytics
     ports:
-      - "${CAMPUS_ACADEMIC_ANALYTICS_BIND_ADDRESS:-0.0.0.0}:9091:9091"
+      - "${CAMPUS_ACADEMIC_ANALYTICS_BIND_ADDRESS:-0.0.0.0}:${CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT:-9091}:9091"
     depends_on:
       analytics-migrate:
         condition: service_completed_successfully

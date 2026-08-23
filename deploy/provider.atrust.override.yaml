@@ -10,4 +10,4 @@ services:
 networks:
   atrust-clients:
     external: true
-    name: "${CAMPUS_ATRUST_CLIENT_NETWORK:-campus-atrust-clients}"
+    name: "${CAMPUS_ATRUST_CLIENT_NETWORK:?set CAMPUS_ATRUST_CLIENT_NETWORK}"

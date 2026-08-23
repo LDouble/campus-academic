@@ -10,12 +10,22 @@ fake_state=$test_root/state
 fake_log=$test_root/docker.log
 mkdir -p "$fake_state"
 
+grep -Fq '${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090' "$repo_root/deploy/compose.yaml" || {
+  echo 'Provider Compose 缺少可配置发布端口' >&2
+  exit 1
+}
+grep -Fq '${CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT:-9091}:9091' "$repo_root/deploy/compose.yaml" || {
+  echo 'Analytics Compose 缺少可配置发布端口' >&2
+  exit 1
+}
+
 cat >"$test_root/docker" <<'FAKE'
 #!/bin/sh
 set -eu
 state=${FAKE_DOCKER_STATE:?}
 log=${FAKE_DOCKER_LOG:?}
-printf '%s\n' "$*" >>"$log"
+printf 'COMPOSE_PROJECT_NAME=%s CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT=%s %s\n' \
+  "${COMPOSE_PROJECT_NAME:-}" "${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-}" "$*" >>"$log"
 
 if [ "$1" = compose ]; then
   shift
@@ -145,8 +155,8 @@ CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR=$test_root/rpc-tls
 CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR=$test_root/provider-redis-tls
 CAMPUS_ATRUST_USERNAME_FILE=$test_root/atrust-username
 CAMPUS_ATRUST_PASSWORD_FILE=$test_root/atrust-password
-CAMPUS_ATRUST_CLIENT_NETWORK=test-atrust-clients
-CAMPUS_ATRUST_EGRESS_NETWORK=test-atrust-egress
+CAMPUS_ATRUST_CLIENT_NETWORK=campus-production-atrust-clients
+CAMPUS_ATRUST_EGRESS_NETWORK=campus-production-atrust-egress
 EOF
 
 run_deploy() {
@@ -165,6 +175,7 @@ printf '%s' "$first_output" | grep -q '调用独立 campus-atrust-gateway 依赖
 printf '%s' "$first_output" | grep -q 'independent gateway ensured'
 printf '%s' "$first_output" | grep -q 'production Provider 发布完成'
 grep -q "^production|$test_root/provider.env$" "$test_root/gateway.log"
+grep -q 'COMPOSE_PROJECT_NAME=campus-academic-production-provider .*academic-provider' "$fake_log"
 
 sed 's/active_provider: ouc/active_provider: mock/' "$test_root/provider-config.yaml" >"$test_root/provider-config.mock.yaml"
 sed "s#provider-config.yaml#provider-config.mock.yaml#" "$test_root/provider.env" >"$test_root/provider.mock.env"
@@ -185,5 +196,45 @@ if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root
   exit 1
 fi
 grep -q 'scripts/ensure-gateway.sh' "$test_root/missing.out"
+
+if COMPOSE_PROJECT_NAME=campus-academic-production-analytics \
+  FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  PROVIDER_ENV_FILE=$test_root/provider.env \
+  "$repo_root/scripts/deploy-provider.sh" production >"$test_root/wrong-project.out" 2>&1; then
+  echo 'Provider 错误角色 Compose project 未被拒绝' >&2
+  exit 1
+fi
+grep -q 'COMPOSE_PROJECT_NAME 必须是 campus-academic-production-provider' "$test_root/wrong-project.out"
+
+if CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT=0 \
+  FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  PROVIDER_ENV_FILE=$test_root/provider.env \
+  "$repo_root/scripts/deploy-provider.sh" production >"$test_root/wrong-port.out" 2>&1; then
+  echo 'Provider 非法发布端口未被拒绝' >&2
+  exit 1
+fi
+grep -q 'CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT 必须是 1 到 65535' "$test_root/wrong-port.out"
+
+sed 's/campus-production-atrust-clients/campus-atrust-clients/' \
+  "$test_root/provider.env" >"$test_root/legacy-network.env"
+if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  PROVIDER_ENV_FILE=$test_root/legacy-network.env \
+  "$repo_root/scripts/deploy-provider.sh" production >"$test_root/legacy-network.out" 2>&1; then
+  echo 'Provider 旧式共享 aTrust 网络未被拒绝' >&2
+  exit 1
+fi
+grep -q 'CAMPUS_ATRUST_CLIENT_NETWORK 必须带有 campus-production-atrust-clients' "$test_root/legacy-network.out"
+
+sed 's/environment: production/environment: review/' "$test_root/bootstrap.yaml" >"$test_root/review-bootstrap.yaml"
+sed "s#${test_root}/bootstrap.yaml#${test_root}/review-bootstrap.yaml#; s/campus-production-atrust-clients/campus-review-atrust-clients/; s/campus-production-atrust-egress/campus-review-atrust-egress/" \
+  "$test_root/provider.env" >"$test_root/review.env"
+review_output=$(COMPOSE_PROJECT_NAME=campus-academic-review-provider \
+  CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT=19090 \
+  FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  PROVIDER_ENV_FILE=$test_root/review.env PROVIDER_DEPENDENCY_HEALTH_TIMEOUT=1 \
+  PROVIDER_DEPENDENCY_HEALTH_INTERVAL=1 TEST_GATEWAY_LOG=$test_root/gateway.log \
+  "$repo_root/scripts/deploy-provider.sh" review)
+printf '%s' "$review_output" | grep -q 'review Provider 发布完成'
+grep -q 'COMPOSE_PROJECT_NAME=campus-academic-review-provider CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT=19090' "$fake_log"
 
 echo 'deploy-provider tests passed'
