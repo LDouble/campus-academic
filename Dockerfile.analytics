@@ -11,4 +11,4 @@ COPY --from=build /out/academic-analytics /app/academic-analytics
 COPY --from=build /out/academicctl /app/academicctl
 COPY migrations /app/migrations
 WORKDIR /app
-ENTRYPOINT ["/app/academic-analytics"]
+CMD ["/app/academic-analytics"]

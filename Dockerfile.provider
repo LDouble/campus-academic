@@ -8,4 +8,4 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/academic-provider 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/academic-provider /app/academic-provider
 WORKDIR /app
-ENTRYPOINT ["/app/academic-provider"]
+CMD ["/app/academic-provider"]
