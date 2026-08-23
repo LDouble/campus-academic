@@ -29,10 +29,26 @@ academic_query:
   exams_timeout: 12s
   selections_timeout: 12s
   stale_refresh_timeout: 2s
-  lease_ttl: 20s
-  poll_interval: 100ms
+  circuit_failure_threshold: 3
+  circuit_window: 30s
+  circuit_open_duration: 15s
+  circuit_minimum_samples: 10
+  circuit_deadline_threshold: 3
+  circuit_deadline_ratio: 0.20
+  circuit_hard_protection_count: 10
+  circuit_hard_protection_window: 30s
+  lease_ttl: 35s
+  poll_interval: 50ms
   global_rate: 10
   global_burst: 20
+  courses_fresh_ttl: 5m
+  courses_stale_ttl: 30m
+  grades_fresh_ttl: 2m
+  grades_stale_ttl: 10m
+  exams_fresh_ttl: 3m
+  exams_stale_ttl: 15m
+  selections_fresh_ttl: 30s
+  selections_stale_ttl: 5m
 
 analytics:
   listen_address: ":9091"

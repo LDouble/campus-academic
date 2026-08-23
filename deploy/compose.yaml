@@ -52,6 +52,7 @@ services:
         required: false
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
+      CAMPUS_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
       CAMPUS_ACADEMIC_PROVIDER_LISTEN: ":9090"
       CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
       CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS:-provider-redis:6379}
