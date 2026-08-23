@@ -14,6 +14,14 @@ grep -Fq '${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090' "$repo_root/dep
   echo 'Provider Compose 缺少可配置发布端口' >&2
   exit 1
 }
+grep -Fq '${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090' "$repo_root/deploy/provider.compose.yaml" || {
+  echo 'Provider 独立 Compose 缺少可配置发布端口' >&2
+  exit 1
+}
+if grep -Eq 'academic-analytics|analytics-mysql|analytics-redis|^[[:space:]]+provider-redis:' "$repo_root/deploy/provider.compose.yaml"; then
+  echo 'Provider 独立 Compose 混入了非 Provider 服务或本机 Redis' >&2
+  exit 1
+fi
 grep -Fq '${CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT:-9091}:9091' "$repo_root/deploy/compose.yaml" || {
   echo 'Analytics Compose 缺少可配置发布端口' >&2
   exit 1

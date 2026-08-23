@@ -11,7 +11,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 docker_bin=${DOCKER_BIN:-docker}
 env_file=${PROVIDER_ENV_FILE:-$repo_root/deploy/provider.$environment.env}
-provider_compose_file=${PROVIDER_COMPOSE_FILE:-$repo_root/deploy/compose.yaml}
+provider_compose_file=${PROVIDER_COMPOSE_FILE:-$repo_root/deploy/provider.compose.yaml}
 provider_override_file=${PROVIDER_OVERRIDE_FILE:-$repo_root/deploy/provider.atrust.override.yaml}
 health_timeout=${PROVIDER_DEPENDENCY_HEALTH_TIMEOUT:-180}
 health_interval=${PROVIDER_DEPENDENCY_HEALTH_INTERVAL:-5}
