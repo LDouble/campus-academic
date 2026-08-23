@@ -1909,7 +1909,7 @@ const file_academic_provider_v1_provider_proto_rawDesc = "" +
 	"\tListExams\x12&.academic.provider.v1.ListExamsRequest\x1a'.academic.provider.v1.ListExamsResponse\x12}\n" +
 	"\x14ListCourseSelections\x121.academic.provider.v1.ListCourseSelectionsRequest\x1a2.academic.provider.v1.ListCourseSelectionsResponse\x12\x80\x01\n" +
 	"\x15ListCourseCatalogPage\x122.academic.provider.v1.ListCourseCatalogPageRequest\x1a3.academic.provider.v1.ListCourseCatalogPageResponse\x12\x80\x01\n" +
-	"\x15DeleteStudentSessions\x122.academic.provider.v1.DeleteStudentSessionsRequest\x1a3.academic.provider.v1.DeleteStudentSessionsResponseBSZQgithub.com/LDouble/campus-academic/pkg/academic/provider/v1;academicproviderv1b\x06proto3"
+	"\x15DeleteStudentSessions\x122.academic.provider.v1.DeleteStudentSessionsRequest\x1a3.academic.provider.v1.DeleteStudentSessionsResponseBPZNgithub.com/LDouble/campus-academic/pkg/academic/provider/v1;academicproviderv1b\x06proto3"
 
 var (
 	file_academic_provider_v1_provider_proto_rawDescOnce sync.Once

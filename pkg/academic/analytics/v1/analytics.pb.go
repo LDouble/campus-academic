@@ -1785,7 +1785,7 @@ const file_academic_analytics_v1_analytics_proto_rawDesc = "" +
 	"\x16GetCoursePassRateTrend\x124.academic.analytics.v1.GetCoursePassRateTrendRequest\x1a5.academic.analytics.v1.GetCoursePassRateTrendResponse\x12\x91\x01\n" +
 	"\x1aGetInstructorPassRateTrend\x128.academic.analytics.v1.GetInstructorPassRateTrendRequest\x1a9.academic.analytics.v1.GetInstructorPassRateTrendResponse\x12d\n" +
 	"\vListBatches\x12).academic.analytics.v1.ListBatchesRequest\x1a*.academic.analytics.v1.ListBatchesResponse\x12s\n" +
-	"\x10TriggerManualRun\x12..academic.analytics.v1.TriggerManualRunRequest\x1a/.academic.analytics.v1.TriggerManualRunResponseBUZSgithub.com/LDouble/campus-academic/pkg/academic/analytics/v1;academicanalyticsv1b\x06proto3"
+	"\x10TriggerManualRun\x12..academic.analytics.v1.TriggerManualRunRequest\x1a/.academic.analytics.v1.TriggerManualRunResponseBRZPgithub.com/LDouble/campus-academic/pkg/academic/analytics/v1;academicanalyticsv1b\x06proto3"
 
 var (
 	file_academic_analytics_v1_analytics_proto_rawDescOnce sync.Once
