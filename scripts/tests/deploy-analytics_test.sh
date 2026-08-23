@@ -10,6 +10,11 @@ fake_state=$test_root/state
 fake_log=$test_root/docker.log
 mkdir -p "$fake_state" "$test_root/rpc-tls" "$test_root/analytics-redis-tls"
 
+grep -Fq '${CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT:-9091}:9091' "$repo_root/deploy/analytics.compose.yaml" || {
+  echo 'Analytics 独立 Compose 缺少可配置发布端口' >&2
+  exit 1
+}
+
 compose_file=$repo_root/deploy/analytics.compose.yaml
 defined_services=$(awk '
   /^services:[[:space:]]*$/ { inside=1; next }
@@ -40,7 +45,8 @@ cat >"$test_root/docker" <<'FAKE'
 set -eu
 state=${FAKE_DOCKER_STATE:?}
 log=${FAKE_DOCKER_LOG:?}
-printf '%s\n' "$*" >>"$log"
+printf 'COMPOSE_PROJECT_NAME=%s CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=%s %s\n' \
+  "${COMPOSE_PROJECT_NAME:-}" "${CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT:-}" "$*" >>"$log"
 if [ "$1" = compose ]; then
   shift
   command=
@@ -166,6 +172,24 @@ if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root
 fi
 grep -q 'Production Analytics 镜像必须使用 64 位 sha256 摘要' "$test_root/mutable.out"
 
+if COMPOSE_PROJECT_NAME=campus-academic-production-provider \
+  FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  ANALYTICS_ENV_FILE=$test_root/analytics.env \
+  "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/wrong-project.out" 2>&1; then
+  echo 'Analytics 错误角色 Compose project 未被拒绝' >&2
+  exit 1
+fi
+grep -q 'COMPOSE_PROJECT_NAME 必须是 campus-academic-production-analytics' "$test_root/wrong-project.out"
+
+if CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=65536 \
+  FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  ANALYTICS_ENV_FILE=$test_root/analytics.env \
+  "$repo_root/scripts/deploy-analytics.sh" production >"$test_root/wrong-port.out" 2>&1; then
+  echo 'Analytics 非法发布端口未被拒绝' >&2
+  exit 1
+fi
+grep -q 'CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT 必须是 1 到 65535' "$test_root/wrong-port.out"
+
 sed 's/^port 0$/port 6379/' "$test_root/redis.conf" >"$test_root/plaintext-redis.conf"
 sed "s#$test_root/redis.conf#$test_root/plaintext-redis.conf#" "$test_root/analytics.env" >"$test_root/plaintext-redis.env"
 if FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
@@ -187,9 +211,11 @@ grep -q '必须位于 /run/secrets/analytics-redis 根目录' "$test_root/outsid
 sed 's/environment: production/environment: review/' "$test_root/bootstrap.yaml" >"$test_root/review-bootstrap.yaml"
 sed "s#${test_root}/bootstrap.yaml#${test_root}/review-bootstrap.yaml#" "$test_root/mutable.env" >"$test_root/review.env"
 review_output=$(FAKE_DOCKER_STATE=$fake_state FAKE_DOCKER_LOG=$fake_log DOCKER_BIN=$test_root/docker \
+  COMPOSE_PROJECT_NAME=campus-academic-review-analytics CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=19091 \
   ANALYTICS_ENV_FILE=$test_root/review.env ANALYTICS_DEPENDENCY_HEALTH_TIMEOUT=1 \
   ANALYTICS_DEPENDENCY_HEALTH_INTERVAL=1 "$repo_root/scripts/deploy-analytics.sh" review 2>&1)
 printf '%s' "$review_output" | grep -q 'Review 警告：建议使用'
 printf '%s' "$review_output" | grep -q 'review Analytics 发布完成'
+grep -q 'COMPOSE_PROJECT_NAME=campus-academic-review-analytics CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=19091' "$fake_log"
 
 echo 'deploy-analytics tests passed'

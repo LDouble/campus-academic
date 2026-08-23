@@ -11,7 +11,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 docker_bin=${DOCKER_BIN:-docker}
 env_file=${PROVIDER_ENV_FILE:-$repo_root/deploy/provider.$environment.env}
-provider_compose_file=${PROVIDER_COMPOSE_FILE:-$repo_root/deploy/compose.yaml}
+provider_compose_file=${PROVIDER_COMPOSE_FILE:-$repo_root/deploy/provider.compose.yaml}
 provider_override_file=${PROVIDER_OVERRIDE_FILE:-$repo_root/deploy/provider.atrust.override.yaml}
 health_timeout=${PROVIDER_DEPENDENCY_HEALTH_TIMEOUT:-180}
 health_interval=${PROVIDER_DEPENDENCY_HEALTH_INTERVAL:-5}
@@ -76,8 +76,29 @@ resolve_setting() {
   fi
 }
 
+require_published_port() {
+  variable_name=$1
+  port=$2
+  case "$port" in
+    ''|*[!0-9]*) fail "$variable_name 必须是 1 到 65535 的宿主机端口" ;;
+  esac
+  [ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || \
+    fail "$variable_name 必须是 1 到 65535 的宿主机端口"
+}
+
+require_role_compose_project() {
+  project=$1
+  case "$project" in
+    campus-academic-"$environment"-provider|campus-academic-"$environment"-provider-?*) ;;
+    *) fail "COMPOSE_PROJECT_NAME 必须是 campus-academic-${environment}-provider 或其节点后缀" ;;
+  esac
+  case "$project" in
+    *[!a-z0-9-]*|*--*|-|*-) fail "COMPOSE_PROJECT_NAME 只能包含小写字母、数字和单个连字符" ;;
+  esac
+}
+
 provider_compose() {
-  "$docker_bin" compose --env-file "$env_file" \
+  COMPOSE_PROJECT_NAME="$compose_project_name" "$docker_bin" compose --env-file "$env_file" \
     -f "$provider_compose_file" -f "$provider_override_file" "$@"
 }
 
@@ -114,6 +135,12 @@ provider_config_file=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE
 rpc_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR)
 provider_redis_tls_host_dir=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR)
 atrust_gateway_home=$(resolve_setting CAMPUS_ATRUST_GATEWAY_HOME)
+provider_published_port=$(resolve_setting CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT)
+compose_project_name=$(resolve_setting COMPOSE_PROJECT_NAME)
+atrust_client_network=$(resolve_setting CAMPUS_ATRUST_CLIENT_NETWORK)
+
+: "${provider_published_port:=9090}"
+: "${compose_project_name:=campus-academic-${environment}-provider}"
 
 [ -n "$provider_image" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_IMAGE"
 [ -n "$bootstrap_file" ] || fail "未配置 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE"
@@ -121,6 +148,13 @@ atrust_gateway_home=$(resolve_setting CAMPUS_ATRUST_GATEWAY_HOME)
 [ -n "$rpc_tls_host_dir" ] || fail "未配置 CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR"
 [ -n "$provider_redis_tls_host_dir" ] || fail "未配置 CAMPUS_ACADEMIC_PROVIDER_REDIS_TLS_HOST_DIR"
 [ -n "$atrust_gateway_home" ] || fail "未配置 CAMPUS_ATRUST_GATEWAY_HOME"
+[ -n "$atrust_client_network" ] || fail "未配置 CAMPUS_ATRUST_CLIENT_NETWORK"
+require_published_port CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT "$provider_published_port"
+require_role_compose_project "$compose_project_name"
+case "$atrust_client_network" in
+  campus-"$environment"-atrust-clients|campus-"$environment"-atrust-clients-?*) ;;
+  *) fail "CAMPUS_ATRUST_CLIENT_NETWORK 必须带有 campus-${environment}-atrust-clients 环境前缀" ;;
+esac
 require_absolute CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE "$bootstrap_file"
 require_absolute CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE "$provider_config_file"
 require_absolute CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR "$rpc_tls_host_dir"

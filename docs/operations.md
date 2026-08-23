@@ -38,6 +38,39 @@ cp deploy/provider.env.example deploy/provider.review.env
 make review PROVIDER_ENV_FILE="$PWD/deploy/provider.review.env"
 ```
 
+### Compose 角色隔离与单机 Review
+
+`COMPOSE_PROJECT_NAME` 是角色级变量：Provider 必须为
+`campus-academic-<environment>-provider`，Analytics 必须为
+`campus-academic-<environment>-analytics`；需要同角色多节点时只能追加节点后缀。
+发布器会拒绝角色或环境不匹配的名称，避免两个 Compose 文件因位于同一目录而误用同一
+默认 project、网络或 volume。
+
+三个角色暂时部署在同一台 Review ECS 时，云效应分别调用两个发布器，并在各自环境文件
+或变量组中设置：
+
+```dotenv
+# Provider 角色
+COMPOSE_PROJECT_NAME=campus-academic-review-provider
+CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT=19090
+CAMPUS_ATRUST_CLIENT_NETWORK=campus-review-atrust-clients
+
+# Analytics 角色
+COMPOSE_PROJECT_NAME=campus-academic-review-analytics
+CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=19091
+```
+
+容器内 gRPC 端口仍为 `9090` 和 `9091`，bootstrap 内的本机 mTLS healthcheck target
+也不变。平台 API 必须经该 ECS 宿主机可达地址访问 `19090`、`19091`，不能使用跨 project
+的 Docker 服务名。Provider 与 aTrust 只共享显式传入、带环境前缀的
+`CAMPUS_ATRUST_CLIENT_NETWORK`；Analytics 不加入该网络。
+
+云效运行时，低频配置文件可以指向本地控制机提前下发的角色 `current/runtime.env`；镜像
+变量不得写入该文件，而应作为本次流水线参数注入：Provider 使用
+`CAMPUS_ACADEMIC_PROVIDER_IMAGE` 与 `CAMPUS_ATRUST_IMAGE`，Analytics 使用
+`CAMPUS_ACADEMIC_ANALYTICS_IMAGE`。云效保留 digest、release ID 和发布日志；切换主机时
+复用初始化 bundle，但重新从云效选择需要发布的镜像。
+
 生产门禁包括：
 
 - `bootstrap.yaml` 的 `environment` 必须是 `production`、Provider 必须启用 mTLS；

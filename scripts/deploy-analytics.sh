@@ -33,6 +33,27 @@ resolve_setting() {
   if [ -n "$process_value" ]; then printf '%s\n' "$process_value"; else printf '%s\n' "$file_value"; fi
 }
 
+require_published_port() {
+  variable_name=$1
+  port=$2
+  case "$port" in
+    ''|*[!0-9]*) fail "$variable_name 必须是 1 到 65535 的宿主机端口" ;;
+  esac
+  [ "$port" -ge 1 ] 2>/dev/null && [ "$port" -le 65535 ] 2>/dev/null || \
+    fail "$variable_name 必须是 1 到 65535 的宿主机端口"
+}
+
+require_role_compose_project() {
+  project=$1
+  case "$project" in
+    campus-academic-"$environment"-analytics|campus-academic-"$environment"-analytics-?*) ;;
+    *) fail "COMPOSE_PROJECT_NAME 必须是 campus-academic-${environment}-analytics 或其节点后缀" ;;
+  esac
+  case "$project" in
+    *[!a-z0-9-]*|*--*|-|*-) fail "COMPOSE_PROJECT_NAME 只能包含小写字母、数字和单个连字符" ;;
+  esac
+}
+
 analytics_value() {
   key=$2
   awk -v key="$key" '
@@ -73,7 +94,7 @@ redis_config_value() {
   ' "$1"
 }
 
-analytics_compose() { "$docker_bin" compose --env-file "$env_file" -f "$analytics_compose_file" "$@"; }
+analytics_compose() { COMPOSE_PROJECT_NAME="$compose_project_name" "$docker_bin" compose --env-file "$env_file" -f "$analytics_compose_file" "$@"; }
 container_health() { "$docker_bin" inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$1"; }
 
 wait_healthy() {
@@ -130,6 +151,11 @@ analytics_redis_ca_env=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE
 analytics_redis_client_cert_env=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE)
 analytics_redis_client_key_env=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE)
 analytics_redis_server_name_env=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME)
+analytics_published_port=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT)
+compose_project_name=$(resolve_setting COMPOSE_PROJECT_NAME)
+
+: "${analytics_published_port:=9091}"
+: "${compose_project_name:=campus-academic-${environment}-analytics}"
 
 [ -n "$analytics_image" ] || fail "未配置 CAMPUS_ACADEMIC_ANALYTICS_IMAGE"
 [ -n "$bootstrap_file" ] || fail "未配置 CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE"
@@ -138,6 +164,8 @@ analytics_redis_server_name_env=$(resolve_setting CAMPUS_ACADEMIC_ANALYTICS_REDI
 [ -n "$analytics_redis_config_file" ] || fail "未配置 CAMPUS_ACADEMIC_ANALYTICS_REDIS_CONFIG_HOST_FILE"
 [ -n "$analytics_redis_ca_env" ] || fail "未配置 CAMPUS_ACADEMIC_ANALYTICS_REDIS_CA_FILE"
 [ -n "$analytics_redis_server_name_env" ] || fail "未配置 CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME"
+require_published_port CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT "$analytics_published_port"
+require_role_compose_project "$compose_project_name"
 require_absolute CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE "$bootstrap_file"
 require_absolute CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR "$rpc_tls_host_dir"
 require_absolute CAMPUS_ACADEMIC_ANALYTICS_REDIS_TLS_HOST_DIR "$analytics_redis_tls_host_dir"
