@@ -55,6 +55,13 @@ analytics:
   listen_address: ":9091"
   target: 127.0.0.1:9091
   insecure: true
+  tls_files_root: ""
+  ca_file: ""
+  client_cert_file: ""
+  client_key_file: ""
+  server_cert_file: ""
+  server_key_file: ""
+  server_name: ""
   mysql:
     dsn: ""
   redis:

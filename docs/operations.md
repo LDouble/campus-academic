@@ -75,3 +75,29 @@ make test-deploy
 
 aTrust 自身的幂等生命周期、网络和生产镜像门禁测试在
 `campus-atrust-gateway` 仓库执行 `make test`。
+
+## Analytics 自动化发布
+
+Analytics 部署到独立 ECS 时使用 `scripts/deploy-analytics.sh`，它只会启动
+`analytics-mysql`、`analytics-redis`、`analytics-migrate` 和
+`academic-analytics`，不会启动 Provider、aTrust 或 Provider Redis。首次部署前复制
+`deploy/analytics.env.example` 到受控的宿主机路径，并将 bootstrap、两组 TLS 文件和
+Redis 配置放在宿主机绝对路径中：
+
+```bash
+make analytics-production ANALYTICS_ENV_FILE=/etc/campus-academic/production/analytics.env
+make analytics-review ANALYTICS_ENV_FILE=/etc/campus-academic/review/analytics.env
+```
+
+Review 和 Production 均应使用由镜像 tag 解析得到的
+`CAMPUS_ACADEMIC_ANALYTICS_IMAGE=...@sha256:...`；Production 会拒绝非 digest。
+发布器校验 bootstrap 环境、Analytics mTLS、Analytics Redis TLS 挂载，先等待 MySQL/
+Redis 健康，再用相同的 Analytics 镜像执行迁移并启动服务。
+
+发布器不执行数据库备份、删除卷或删除容器。云效在启动迁移前必须通过外部备份门禁
+（例如托管 MySQL 备份成功或运维快照成功）；备份失败时不得运行此发布入口。
+
+`CAMPUS_ACADEMIC_ANALYTICS_REDIS_CONFIG_HOST_FILE` 是 Redis 服务端 TLS 配置；它必须
+关闭明文 Redis 端口、监听 TLS 端口，并引用 `/run/secrets/analytics-redis` 下的证书。
+若 Redis 配置启用客户端证书校验，环境文件中的客户端证书/私钥名称必须与 bootstrap
+中的 Analytics Redis 配置一致。
