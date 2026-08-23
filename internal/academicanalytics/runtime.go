@@ -5,6 +5,7 @@ package academicanalytics
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/LDouble/campus-academic/internal/core/bootstrap"
@@ -43,6 +44,12 @@ type Runtime struct {
 
 // Build creates the Analytics gRPC server and its direct task worker.
 func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
+	if strings.TrimSpace(cfg.Analytics.MySQL.DSN) == "" {
+		return nil, fmt.Errorf("academic analytics MySQL DSN is required")
+	}
+	if strings.TrimSpace(cfg.Analytics.SourceDSN) == "" {
+		return nil, fmt.Errorf("academic analytics source DSN is required")
+	}
 	log, err := logger.New()
 	if err != nil {
 		return nil, fmt.Errorf("create academic analytics logger: %w", err)

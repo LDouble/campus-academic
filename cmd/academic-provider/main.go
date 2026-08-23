@@ -34,7 +34,7 @@ func run() error {
 	if len(os.Args) != 1 {
 		return fmt.Errorf("usage: academic-provider [healthcheck]")
 	}
-	cfg, err := bootstrap.Load(configPath())
+	cfg, err := bootstrap.LoadProvider(configPath())
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func run() error {
 }
 
 func runHealthcheck() error {
-	cfg, err := bootstrap.Load(configPath())
+	cfg, err := bootstrap.LoadProvider(configPath())
 	if err != nil {
 		return err
 	}

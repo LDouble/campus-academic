@@ -34,6 +34,14 @@ type Config struct {
 	Secret             SecretConfig        `yaml:"-"`
 }
 
+type component string
+
+const (
+	componentAll       component = "all"
+	componentProvider  component = "provider"
+	componentAnalytics component = "analytics"
+)
+
 // ProviderConfig configures the gRPC listener and upstream query protection.
 type ProviderConfig struct {
 	ListenAddress  string        `yaml:"listen_address"`
@@ -148,6 +156,22 @@ func (c Config) AllowsAcademicOUC() bool { return true }
 
 // Load reads YAML and environment-only secrets for both services.
 func Load(path string) (Config, error) {
+	return load(path, componentAll)
+}
+
+// LoadProvider loads only the configuration required by academic-provider.
+// Provider startup must not require Analytics database credentials.
+func LoadProvider(path string) (Config, error) {
+	return load(path, componentProvider)
+}
+
+// LoadAnalytics loads only the configuration required by academic-analytics.
+// Analytics startup must not require Provider session keys.
+func LoadAnalytics(path string) (Config, error) {
+	return load(path, componentAnalytics)
+}
+
+func load(path string, service component) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("read campus-academic bootstrap: %w", err)
@@ -158,10 +182,10 @@ func Load(path string) (Config, error) {
 	}
 	applyDefaults(&cfg)
 	applyEnvironment(&cfg)
-	if err := loadSecrets(&cfg); err != nil {
+	if err := loadSecrets(&cfg, service); err != nil {
 		return Config{}, err
 	}
-	if err := validate(cfg); err != nil {
+	if err := validate(cfg, service); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
@@ -175,10 +199,10 @@ func applyDefaults(cfg *Config) {
 		cfg.Release = "dev"
 	}
 	if cfg.Provider.ListenAddress == "" {
-		cfg.Provider.ListenAddress = ":9100"
+		cfg.Provider.ListenAddress = ":9090"
 	}
 	if cfg.Analytics.ListenAddress == "" {
-		cfg.Analytics.ListenAddress = ":9200"
+		cfg.Analytics.ListenAddress = ":9091"
 	}
 	if cfg.Redis.Address == "" {
 		cfg.Redis.Address = "127.0.0.1:6379"
@@ -275,7 +299,10 @@ func setString(target *string, name string) {
 	}
 }
 
-func loadSecrets(cfg *Config) error {
+func loadSecrets(cfg *Config, service component) error {
+	if service == componentAnalytics {
+		return nil
+	}
 	provider, err := secretFromEnv("CAMPUS_ACADEMIC_PROVIDER_KEY", "provider key")
 	if err != nil {
 		return err
@@ -303,6 +330,11 @@ func secretFromEnv(name, label string) ([]byte, error) {
 	if raw == "" {
 		return nil, nil
 	}
+	if len(raw) == 64 {
+		if decoded, err := hex.DecodeString(raw); err == nil {
+			return decoded, nil
+		}
+	}
 	if decoded, err := base64.RawStdEncoding.DecodeString(raw); err == nil {
 		return decoded, nil
 	}
@@ -321,20 +353,24 @@ func developmentKey(label string) []byte {
 	return sum[:]
 }
 
-func validate(cfg Config) error {
+func validate(cfg Config, service component) error {
 	if cfg.Environment != EnvironmentDevelopment && cfg.Environment != EnvironmentReview && cfg.Environment != EnvironmentProduction {
 		return fmt.Errorf("environment must be development, review or production")
 	}
-	if strings.TrimSpace(cfg.Provider.ListenAddress) == "" || strings.TrimSpace(cfg.Analytics.ListenAddress) == "" {
-		return errors.New("provider and analytics listen addresses are required")
+	if service != componentAnalytics && strings.TrimSpace(cfg.Provider.ListenAddress) == "" {
+		return errors.New("provider listen address is required")
 	}
-	if cfg.Provider.MaxConcurrent < 1 || cfg.Provider.QueueWait <= 0 || cfg.Provider.RetryAfter <= 0 {
+	if service != componentProvider && strings.TrimSpace(cfg.Analytics.ListenAddress) == "" {
+		return errors.New("analytics listen address is required")
+	}
+	if service != componentAnalytics && (cfg.Provider.MaxConcurrent < 1 || cfg.Provider.QueueWait <= 0 || cfg.Provider.RetryAfter <= 0) {
 		return errors.New("provider concurrency and queue settings must be positive")
 	}
-	if cfg.UsesProductionSafeguards() && (cfg.Provider.Insecure || cfg.Analytics.Insecure) {
+	if cfg.UsesProductionSafeguards() && ((service != componentAnalytics && cfg.Provider.Insecure) ||
+		(service != componentProvider && cfg.Analytics.Insecure)) {
 		return errors.New("review/production deployments must use mutual TLS")
 	}
-	if cfg.Environment == EnvironmentProduction && (strings.TrimSpace(cfg.Analytics.MySQL.DSN) == "" || strings.TrimSpace(cfg.Analytics.SourceDSN) == "") {
+	if service != componentProvider && cfg.Environment == EnvironmentProduction && (strings.TrimSpace(cfg.Analytics.MySQL.DSN) == "" || strings.TrimSpace(cfg.Analytics.SourceDSN) == "") {
 		return errors.New("production analytics database and source DSN are required")
 	}
 	if cfg.Analytics.MinimumSampleSize < 1 {

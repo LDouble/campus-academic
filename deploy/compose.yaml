@@ -4,12 +4,22 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - provider-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   analytics-redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - analytics-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   analytics-mysql:
     image: mysql:8.4
@@ -20,43 +30,67 @@ services:
       MYSQL_ROOT_PASSWORD: ${CAMPUS_ACADEMIC_DB_ROOT_PASSWORD:?set CAMPUS_ACADEMIC_DB_ROOT_PASSWORD}
     volumes:
       - analytics-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
 
   academic-provider:
     build:
       context: ..
       dockerfile: Dockerfile
     command: ["/app/academic-provider"]
+    ports:
+      - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:9090:9090"
     depends_on:
       provider-redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
+      CAMPUS_ACADEMIC_PROVIDER_LISTEN: ":9090"
+      CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
       CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS: provider-redis:6379
       CAMPUS_ACADEMIC_PROVIDER_KEY: ${CAMPUS_ACADEMIC_PROVIDER_KEY:?set provider key}
       CAMPUS_ACADEMIC_QUERY_KEY: ${CAMPUS_ACADEMIC_QUERY_KEY:?set query key}
     volumes:
       - ../bootstrap.yaml:/etc/campus-academic/bootstrap.yaml:ro
       - ../provider-config.yaml:/app/provider-config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   academic-analytics:
     build:
       context: ..
       dockerfile: Dockerfile
     command: ["/app/academic-analytics"]
+    ports:
+      - "${CAMPUS_ACADEMIC_ANALYTICS_BIND_ADDRESS:-0.0.0.0}:9091:9091"
     depends_on:
       analytics-migrate:
         condition: service_completed_successfully
       analytics-mysql:
-        condition: service_started
+        condition: service_healthy
       analytics-redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
-      CAMPUS_ACADEMIC_ANALYTICS_DSN: campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?parseTime=true
+      CAMPUS_ACADEMIC_ANALYTICS_LISTEN: ":9091"
+      CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
+      CAMPUS_ACADEMIC_ANALYTICS_DSN: "campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?parseTime=true"
       CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN: ${CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN:?set read-only source DSN}
       CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS: analytics-redis:6379
     volumes:
       - ../bootstrap.yaml:/etc/campus-academic/bootstrap.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   analytics-migrate:
     build:
@@ -65,9 +99,9 @@ services:
     command: ["/app/academicctl", "migrate", "up"]
     depends_on:
       analytics-mysql:
-        condition: service_started
+        condition: service_healthy
     environment:
-      CAMPUS_ACADEMIC_MIGRATION_URL: mysql://campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?multiStatements=true
+      CAMPUS_ACADEMIC_MIGRATION_URL: "mysql://campus_academic:${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}@tcp(analytics-mysql:3306)/campus_academic?multiStatements=true"
 
 volumes:
   provider-redis:

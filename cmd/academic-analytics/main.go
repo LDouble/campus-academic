@@ -28,7 +28,7 @@ func run() error {
 	if len(os.Args) != 1 {
 		return fmt.Errorf("usage: academic-analytics")
 	}
-	cfg, err := bootstrap.Load(configPath())
+	cfg, err := bootstrap.LoadAnalytics(configPath())
 	if err != nil {
 		return err
 	}

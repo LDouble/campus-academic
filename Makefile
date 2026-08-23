@@ -1,5 +1,7 @@
 .PHONY: build test test-race vet fmt generate generate-check migration-up
 
+BUF ?= go run github.com/bufbuild/buf/cmd/buf@v1.61.0
+
 build:
 	go build ./cmd/academic-provider ./cmd/academic-analytics ./cmd/academicctl
 
@@ -16,13 +18,13 @@ fmt:
 	gofmt -w cmd internal
 
 generate:
-	buf lint
-	buf generate
+	$(BUF) lint proto
+	$(BUF) generate proto
 	go generate ./internal/infrastructure/mysql
 
 generate-check:
-	buf lint
-	buf breaking --against '.git#branch=master'
+	$(BUF) lint proto
+	$(BUF) breaking --against '.git#branch=master' proto
 	go generate ./internal/infrastructure/mysql
 	git diff --exit-code -- pkg internal/infrastructure/mysql/query
 

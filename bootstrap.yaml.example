@@ -4,7 +4,7 @@ release: dev
 provider_config_file: provider-config.yaml
 
 provider:
-  listen_address: ":9100"
+  listen_address: ":9090"
   insecure: true
   max_concurrent: 32
   queue_wait: 250ms
@@ -27,7 +27,7 @@ academic_query:
   global_burst: 20
 
 analytics:
-  listen_address: ":9200"
+  listen_address: ":9091"
   insecure: true
   mysql:
     dsn: ""
