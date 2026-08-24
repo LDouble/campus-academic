@@ -62,7 +62,7 @@ func run() error {
 		errCh <- runtime.Worker.Run(runtime.Mux)
 	}()
 	go func() {
-		errCh <- statisticsworker.Run(ctx, runtime.Manager, runtime.Location, cfg.Analytics.ScheduleHour, runtime.Logger)
+		errCh <- statisticsworker.Run(ctx, runtime.Manager, runtime.Location, cfg.Analytics.ScheduleHour, cfg.Analytics.RetryDelay, runtime.Logger)
 	}()
 	select {
 	case <-ctx.Done():
