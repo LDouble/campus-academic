@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "sso_login_url": "https://id.ouc.edu.cn/sso/login",
+  "portal_service_url": "https://my.ouc.edu.cn/manage/common/cas_login/2?redirect=https%3A%2F%2Fmy.ouc.edu.cn%2Ffrontend%2Fuser%2Finfo",
+  "portal_no_auto_redirect": true,
+  "trace_enabled": true,
+  "request_timeout_ms": 12000,
+  "session_ttl_seconds": 900,
+  "max_response_bytes": 2097152,
+  "user_agent": "CampusMiniApp-Academic/1.0",
+  "undergraduate": {
+    "service_url": "https://jwgl2024.ouc.edu.cn/",
+    "periods": {"path": "/jsxsd/xskb/xskb_list.do?viweType=0", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
+    "courses": {"path": "/jsxsd/xskb/xskb_list.do?viweType=0", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxq01id", "response_encoding": "html"},
+    "grades": {"path": "/jsxsd/kscj/cjcx_list?pageNum=1&pageSize=200&kksj=&kcmc=&xsfs=all&sfxsbcxq=1", "request_method": "GET", "request_encoding": "query", "period_parameter": "kksj", "response_encoding": "json"},
+    "exams": {"path": "/jsxsd/xsks/xsksap_list?pageNum=1&pageSize=200&xqlb=", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxqid", "response_encoding": "json"},
+    "selections": {"path": "/jsxsd/xkgl/loadXsxkjgList?lx=xkrz&type=list&pageNum=1&pageSize=200", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxqid", "response_encoding": "json"},
+    "course_catalog": {
+      "path": "/jsxsd/xkgl/loadXkkbList", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxqval", "response_encoding": "json",
+      "page_parameter": "pageNum", "page_size_parameter": "pageSize", "page_size": 20,
+      "parameters": {"kc": "", "kccm": "", "ksnd": "", "sf_request_type": "ajax", "skbj": "", "skjs": "", "skyx": "", "skzy": "", "xkh": "", "xqbh": ""}
+    }
+  },
+  "graduate": {
+    "service_url": "https://pgs.ouc.edu.cn/allogene/page/home.htm",
+    "periods": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
+    "courses": {"path": "/py/page/student/grkcb.htm?zc=-1", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
+    "grades": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
+    "exams": {"path": "/py/page/student/grksap.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
+    "selections": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
+    "course_catalog": {
+      "path": "/py/page/student/lnsjCxdc.htm", "request_method": "POST", "request_encoding": "form", "period_parameter": "", "period_parameters": ["kkxn", "kckkxj"], "period_separator": ":", "response_encoding": "html",
+      "page_parameter": "pageId", "page_size": 20,
+      "parameters": {"jsgh": "", "jsxm": "", "kcbh": "", "kcmc": "", "kcxz": "-1", "key": "", "kkyx": "-1", "operateType": "search", "skyy": "-1", "tskc": ""}
+    }
+  }
+}
