@@ -96,8 +96,14 @@ docker build -f Dockerfile.provider -t campus-academic-provider:local .
 docker build -f Dockerfile.analytics -t campus-academic-analytics:local .
 ```
 
-Provider 镜像只包含 `academic-provider`。Analytics 镜像包含
-`academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`；
+ACR Tag 自动构建若只能读取仓库根目录 `Dockerfile`，则直接使用根目录复合镜像。该镜像
+同时包含 `/app/academic-provider`、`/app/academic-analytics` 和 `/app/academicctl`；部署
+Compose 必须显式指定对应命令。Provider 与 Analytics 可以写入两个 ACR 仓库，但相同
+Git Tag 对应的二进制内容和源码版本一致。
+
+使用专用 Dockerfile 时，Provider 镜像只包含 `academic-provider`，Analytics 镜像包含
+`academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`。使用根目录复合
+Dockerfile 时，两侧 ACR 镜像包含相同的三个二进制和迁移文件；无论采用哪种构建方式，
 `analytics-migrate` 与 `academic-analytics` 必须使用完全相同的 Analytics 镜像摘要。
 
 本仓库用以下命令验证与独立 aTrust 发布器的调用契约，不需要真实 Docker：

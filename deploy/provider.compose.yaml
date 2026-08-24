@@ -3,6 +3,7 @@
 services:
   academic-provider:
     image: ${CAMPUS_ACADEMIC_PROVIDER_IMAGE:?set CAMPUS_ACADEMIC_PROVIDER_IMAGE}
+    command: ["/app/academic-provider"]
     ports:
       - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090"
     environment:

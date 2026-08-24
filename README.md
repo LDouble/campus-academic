@@ -8,8 +8,11 @@
 
 平台 API 仓库只保留 HTTP、身份与权限，并通过 mTLS gRPC 调用本仓服务。Provider 与 Analytics 使用不同的 Redis；Analytics 写入自己的 MySQL。外部成绩源通过只读 DSN 接入；托管成绩源账号仅允许 `SELECT`、`INSERT`、`UPDATE`，用于后续 Redis Stream 消费者执行幂等 UPSERT。
 
-仓库构建两个独立镜像：`Dockerfile.provider` 只打包 Provider，
-`Dockerfile.analytics` 打包 Analytics 及其数据库迁移工具。两份制品可独立发布、扩容和回滚，
+根目录 `Dockerfile` 同时打包 Provider、Analytics 和数据库迁移工具，供只支持固定
+Dockerfile 路径的 ACR Tag 自动构建使用。Provider 与 Analytics Compose 显式选择各自命令，
+因此同一份复合制品仍可部署到不同主机并分别决定是否重启。`Dockerfile.provider` 与
+`Dockerfile.analytics` 保留为本地最小镜像构建入口。两个服务共享同一源码版本，
+但仍可通过不同 ACR 仓库名独立发布、扩容和回滚，
 但继续共享本仓库中的版本化 gRPC 契约。
 
 多实例部署时，所有 Provider 副本必须共享同一个 Provider Redis，所有
