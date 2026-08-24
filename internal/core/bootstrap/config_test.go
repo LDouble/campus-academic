@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadProviderDoesNotRequireAnalyticsCredentials(t *testing.T) {
@@ -73,6 +74,35 @@ analytics:
 	}
 	if len(cfg.Secret.AcademicProviderKey) != 0 || len(cfg.Secret.AcademicQueryKey) != 0 {
 		t.Fatalf("analytics loader unexpectedly populated provider secrets")
+	}
+	if cfg.Analytics.RetryDelay != 15*time.Minute {
+		t.Fatalf("analytics retry delay = %s, want 15m", cfg.Analytics.RetryDelay)
+	}
+}
+
+func TestAnalyticsRetryDelayEnvironmentOverride(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY", "1h30m")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	cfg, err := LoadAnalytics(path)
+	if err != nil {
+		t.Fatalf("LoadAnalytics() error = %v", err)
+	}
+	if cfg.Analytics.RetryDelay != 90*time.Minute {
+		t.Fatalf("analytics retry delay = %s, want 1h30m", cfg.Analytics.RetryDelay)
+	}
+}
+
+func TestAnalyticsRetryDelayRejectsInvalidEnvironment(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY", "never")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	if _, err := LoadAnalytics(path); err == nil {
+		t.Fatal("LoadAnalytics() accepted invalid analytics retry delay")
 	}
 }
 
@@ -188,6 +218,7 @@ func setEmptyAcademicEnvironment(t *testing.T) {
 		"CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE",
 		"CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE",
 		"CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME",
+		"CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY",
 	} {
 		t.Setenv(name, "")
 	}

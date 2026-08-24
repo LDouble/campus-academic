@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic_statistics/domain"
 	"go.uber.org/zap"
 )
-
-const retryDelay = 15 * time.Minute
 
 // DueRunner is the narrow scheduling contract implemented by the application
 // manager.
@@ -31,6 +30,7 @@ func Run(
 	runner DueRunner,
 	location *time.Location,
 	scheduleHour int,
+	retryDelay time.Duration,
 	log *zap.Logger,
 ) error {
 	for {
@@ -41,13 +41,14 @@ func Run(
 			location,
 			scheduleHour,
 		)
-		delay := untilNextSchedule(time.Now(), location, scheduleHour)
+		delay := delayAfterRun(time.Now(), location, scheduleHour, retryDelay, err)
 		switch {
 		case errors.Is(err, context.Canceled):
 			return ctx.Err()
 		case errors.Is(err, application.ErrRunAlreadyLocked):
 			log.Info("academic statistics aggregation already running")
-			delay = retryDelay
+		case errors.Is(err, domain.ErrEmptySnapshot):
+			log.Info("academic statistics aggregation skipped because source snapshot is empty")
 		case err != nil:
 			log.Error(
 				"academic statistics aggregation failed",
@@ -70,6 +71,13 @@ func Run(
 		case <-timer.C:
 		}
 	}
+}
+
+func delayAfterRun(now time.Time, location *time.Location, scheduleHour int, retryDelay time.Duration, err error) time.Duration {
+	if err != nil && !errors.Is(err, domain.ErrEmptySnapshot) {
+		return retryDelay
+	}
+	return untilNextSchedule(now, location, scheduleHour)
 }
 
 func untilNextSchedule(

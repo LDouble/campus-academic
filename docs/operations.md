@@ -135,6 +135,10 @@ make analytics-review ANALYTICS_ENV_FILE=/etc/campus-academic/review/analytics.e
 
 Review 和 Production 均应使用由镜像 tag 解析得到的
 `CAMPUS_ACADEMIC_ANALYTICS_IMAGE=...@sha256:...`；Production 会拒绝非 digest。
+
+Analytics 默认每天按 bootstrap 中的 `analytics.schedule_hour` 聚合一次。普通故障默认每
+15 分钟重试，可通过 `CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY`（例如 `1h`）调整；成绩源
+为空属于尚无可发布数据，会记录跳过并等待下一次每日调度，不进行高频重试。
 发布器校验 bootstrap 环境、Analytics mTLS、Analytics Redis TLS 挂载，先等待 MySQL/
 Redis 健康，再用相同的 Analytics 镜像执行迁移并启动服务。
 
