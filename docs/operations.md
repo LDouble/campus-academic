@@ -1,7 +1,7 @@
 # 运维说明
 
 1. 为 Provider 和 Analytics 分配独立 Redis 实例或至少独立 DB/ACL。
-2. 为 Analytics 创建独立写库用户；成绩源使用只读账号，启动 preflight 会拒绝带写权限或 `WITH GRANT OPTION` 的账号。
+2. 为 Analytics 创建独立写库用户；外部成绩源使用只读账号。托管成绩源可显式启用受限写模式，启动 preflight 仅接受精确的 `SELECT`、`INSERT`、`UPDATE`，并拒绝 `DELETE`、DDL、`WITH GRANT OPTION` 等越权授权。
 3. 先执行 `go run ./cmd/academicctl migrate up`，再启动 Analytics；切换前完成旧表数据校验和一轮新旧读比对。
 4. 平台 API 的 `CAMPUS_ACADEMIC_ANALYTICS_TARGET` 指向 Analytics gRPC 地址，Provider target 指向 Provider gRPC 地址；两条连接使用独立客户端证书。
 5. 迁移期间保留原平台已 promote 的历史迁移文件，待新库完成切换和审计后再按数据库生命周期单独清理旧表。
@@ -96,8 +96,19 @@ docker build -f Dockerfile.provider -t campus-academic-provider:local .
 docker build -f Dockerfile.analytics -t campus-academic-analytics:local .
 ```
 
-Provider 镜像只包含 `academic-provider`。Analytics 镜像包含
-`academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`；
+ACR Tag 自动构建若只能读取仓库根目录 `Dockerfile`，则直接使用根目录复合镜像。该镜像
+同时包含 `/app/academic-provider`、`/app/academic-analytics` 和 `/app/academicctl`；部署
+Compose 必须显式指定对应命令。Provider 与 Analytics 可以写入两个 ACR 仓库，但相同
+Git Tag 对应的二进制内容和源码版本一致。
+
+独立 Prometheus 通过 VPC 拉取应用指标。Provider 主机默认发布
+`127.0.0.1:9300`，Analytics 主机默认发布 `127.0.0.1:9301`；Production 必须把对应
+`*_METRICS_BIND_ADDRESS` 设置为主机 VPC IP，并在安全组中只允许 Observability 主机访问，
+禁止将指标端口绑定公网地址或对 `0.0.0.0/0` 放行。
+
+使用专用 Dockerfile 时，Provider 镜像只包含 `academic-provider`，Analytics 镜像包含
+`academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`。使用根目录复合
+Dockerfile 时，两侧 ACR 镜像包含相同的三个二进制和迁移文件；无论采用哪种构建方式，
 `analytics-migrate` 与 `academic-analytics` 必须使用完全相同的 Analytics 镜像摘要。
 
 本仓库用以下命令验证与独立 aTrust 发布器的调用契约，不需要真实 Docker：

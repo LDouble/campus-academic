@@ -62,8 +62,8 @@ type ProviderConfig struct {
 	ServerName     string        `yaml:"server_name"`
 }
 
-// AnalyticsConfig owns the Analytics write database, source read database,
-// queue Redis and gRPC server. SourceDSN is environment-only by design.
+// AnalyticsConfig owns the Analytics write database, grade source database,
+// queue Redis and gRPC server. Source credentials are environment-only by design.
 type AnalyticsConfig struct {
 	ListenAddress     string        `yaml:"listen_address"`
 	Target            string        `yaml:"target"`
@@ -78,6 +78,7 @@ type AnalyticsConfig struct {
 	MySQL             MySQLConfig   `yaml:"mysql"`
 	Redis             RedisConfig   `yaml:"redis"`
 	SourceDSN         string        `yaml:"-"`
+	SourceWritable    bool          `yaml:"-"`
 	Timezone          string        `yaml:"timezone"`
 	ScheduleHour      int           `yaml:"schedule_hour"`
 	RetryDelay        time.Duration `yaml:"retry_delay"`
@@ -324,6 +325,9 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Analytics.Target, "CAMPUS_ACADEMIC_ANALYTICS_TARGET")
 	setString(&cfg.Analytics.MySQL.DSN, "CAMPUS_ACADEMIC_ANALYTICS_DSN")
 	setString(&cfg.Analytics.SourceDSN, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN")
+	if err := setBool(&cfg.Analytics.SourceWritable, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_WRITABLE"); err != nil {
+		return err
+	}
 	setString(&cfg.Analytics.Redis.Address, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_ADDRESS")
 	setString(&cfg.Analytics.Redis.Username, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_USERNAME")
 	setString(&cfg.Analytics.Redis.Password, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_PASSWORD")

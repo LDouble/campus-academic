@@ -44,6 +44,7 @@ func TestLoadAnalyticsDoesNotRequireProviderSecrets(t *testing.T) {
 	setEmptyAcademicEnvironment(t)
 	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
 	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_WRITABLE", "true")
 
 	path := writeBootstrapForTest(t, `
 environment: production
@@ -61,6 +62,9 @@ analytics:
 	cfg, err := LoadAnalytics(path)
 	if err != nil {
 		t.Fatalf("LoadAnalytics() error = %v", err)
+	}
+	if !cfg.Analytics.SourceWritable {
+		t.Fatal("analytics managed source writable policy was not loaded")
 	}
 	if cfg.Analytics.ListenAddress != ":9091" {
 		t.Fatalf("analytics listen address = %q, want :9091", cfg.Analytics.ListenAddress)

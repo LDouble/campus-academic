@@ -3,13 +3,16 @@
 `campus-academic` 是教务能力的独立服务仓库，面向社区协作和独立部署。当前包含：
 
 - `academic-provider`：负责 OUC 登录、课表、成绩、考试、选课和课程目录 Provider；会话、查询缓存、限流和 Provider 配置均由本服务拥有。
-- `academic-analytics`：负责通过率聚合、不可变发布批次、课程/教师趋势、定时任务和手动重算；只向成绩源数据库执行只读聚合，不返回学生级数据。
+- `academic-analytics`：负责通过率聚合、不可变发布批次、课程/教师趋势、定时任务和手动重算；外部成绩源保持只读，Analytics 托管源可按成绩唯一键幂等写入，不返回学生级数据。
 - `proto/academic/*/v1`：Provider 与 Analytics 的 gRPC 版本化契约，生成代码位于 `pkg/`。
 
-平台 API 仓库只保留 HTTP、身份与权限，并通过 mTLS gRPC 调用本仓服务。Provider 与 Analytics 使用不同的 Redis；Analytics 写入自己的 MySQL，成绩源通过只读 DSN 接入。
+平台 API 仓库只保留 HTTP、身份与权限，并通过 mTLS gRPC 调用本仓服务。Provider 与 Analytics 使用不同的 Redis；Analytics 写入自己的 MySQL。外部成绩源通过只读 DSN 接入；托管成绩源账号仅允许 `SELECT`、`INSERT`、`UPDATE`，用于后续 Redis Stream 消费者执行幂等 UPSERT。
 
-仓库构建两个独立镜像：`Dockerfile.provider` 只打包 Provider，
-`Dockerfile.analytics` 打包 Analytics 及其数据库迁移工具。两份制品可独立发布、扩容和回滚，
+根目录 `Dockerfile` 同时打包 Provider、Analytics 和数据库迁移工具，供只支持固定
+Dockerfile 路径的 ACR Tag 自动构建使用。Provider 与 Analytics Compose 显式选择各自命令，
+因此同一份复合制品仍可部署到不同主机并分别决定是否重启。`Dockerfile.provider` 与
+`Dockerfile.analytics` 保留为本地最小镜像构建入口。两个服务共享同一源码版本，
+但仍可通过不同 ACR 仓库名独立发布、扩容和回滚，
 但继续共享本仓库中的版本化 gRPC 契约。
 
 多实例部署时，所有 Provider 副本必须共享同一个 Provider Redis，所有
@@ -58,7 +61,7 @@ CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN='readonly:password@tcp(platform-mysql:3306)
 go run ./cmd/academic-analytics
 ```
 
-生产/Review 必须关闭明文 gRPC，并为 Provider 与 Analytics 分别配置 TLS 根目录、服务端证书和客户端证书。服务启动时会校验 Analytics 成绩源表及只读账号权限。
+生产/Review 必须关闭明文 gRPC，并为 Provider 与 Analytics 分别配置 TLS 根目录、服务端证书和客户端证书。服务启动时会校验 Analytics 成绩源表及账号权限：默认必须只读；仅显式设置 `CAMPUS_ACADEMIC_ANALYTICS_SOURCE_WRITABLE=true` 时接受精确的 `SELECT, INSERT, UPDATE` 权限，仍拒绝删除、DDL 和授权权限。
 
 ## 质量门槛
 
