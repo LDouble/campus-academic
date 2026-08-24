@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet fmt generate generate-check migration-up production review analytics-production analytics-review test-deploy test-deploy-provider test-deploy-analytics test-composite-image test-provider-config
+.PHONY: build test test-race vet fmt generate generate-check migration-up production review analytics-production analytics-review test-deploy test-deploy-provider test-deploy-analytics test-composite-image test-provider-config test-render-provider-config test-bootstrap-role bootstrap-render-provider-config bootstrap-prepare deploy-bootstrap deploy-validate
 
 BUF ?= go run github.com/bufbuild/buf/cmd/buf@v1.61.0
 
@@ -43,7 +43,7 @@ analytics-production:
 analytics-review:
 	./scripts/deploy-analytics.sh review
 
-test-deploy: test-deploy-provider test-deploy-analytics test-composite-image test-provider-config
+test-deploy: test-deploy-provider test-deploy-analytics test-composite-image test-provider-config test-render-provider-config test-bootstrap-role
 
 test-deploy-provider:
 	./scripts/tests/deploy-provider_test.sh
@@ -56,3 +56,25 @@ test-composite-image:
 
 test-provider-config:
 	./scripts/tests/provider-config_test.sh
+
+test-render-provider-config:
+	./scripts/tests/render-provider-config_test.sh
+
+test-bootstrap-role:
+	./scripts/tests/bootstrap-role_test.sh
+
+bootstrap-render-provider-config:
+	@test -n "$(ENVIRONMENT)" && test -n "$(OUTPUT)" || (echo 'usage: make bootstrap-render-provider-config ENVIRONMENT=review|production OUTPUT=/absolute/provider-config.yaml' >&2; exit 2)
+	./scripts/render-provider-config.sh "$(ENVIRONMENT)" "$(OUTPUT)"
+
+bootstrap-prepare:
+	@test -n "$(ENVIRONMENT)" || (echo 'usage: make bootstrap-prepare ENVIRONMENT=review|production' >&2; exit 2)
+	CAMPUS_DEPLOY_STATE_DIR="$(DEPLOY_STATE_DIR)" ./scripts/prepare-bootstrap.sh "$(ENVIRONMENT)"
+
+deploy-bootstrap:
+	@test -n "$(ENVIRONMENT)" && test -n "$(ROLE)" && test -n "$(TARGET)" || (echo 'usage: make deploy-bootstrap ENVIRONMENT=review|production ROLE=provider|analytics TARGET=user@host' >&2; exit 2)
+	./scripts/bootstrap-role.sh "$(ENVIRONMENT)" "$(ROLE)" "$(TARGET)"
+
+deploy-validate:
+	@test -n "$(ENVIRONMENT)" || (echo 'usage: make deploy-validate ENVIRONMENT=review|production' >&2; exit 2)
+	./scripts/validate-bootstrap.sh "$(ENVIRONMENT)"

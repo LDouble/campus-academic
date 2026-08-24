@@ -74,7 +74,7 @@ CAMPUS_ACADEMIC_ANALYTICS_PUBLISHED_PORT=19091
 生产门禁包括：
 
 - `bootstrap.yaml` 的 `environment` 必须是 `production`、Provider 必须启用 mTLS；
-- `provider-config.yaml` 的 `active_provider` 必须为 `ouc`，生产禁止 Mock；
+- `provider-config.yaml` 的 `active_provider` 必须与初始化 bundle 及云效变量一致；当前 Production 仅支持 `ouc`，Review 额外支持 `mock`；
 - OUC HTTP 代理必须固定为 `http://atrust-gateway:8888`；
 - Provider 健康检查通过 `127.0.0.1:9090` 发起 mTLS gRPC，请在
   `CAMPUS_ACADEMIC_RPC_TLS_HOST_DIR` 提供 CA、健康检查客户端证书和服务端证书；
