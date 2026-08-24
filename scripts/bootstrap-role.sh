@@ -13,7 +13,14 @@ source_dir=$state_root/$environment/roles/$role/files
 bootstrap_config=$state_root/$environment/bootstrap.env
 [ -r "$bootstrap_config" ] || { printf '%s\n' "缺少 bootstrap 配置: $bootstrap_config" >&2; exit 1; }
 remote_base=$(awk -F= '$1 == "CAMPUS_REMOTE_DEPLOY_ROOT" { print substr($0, length($1) + 2); found++ } END { if (found != 1) exit 1 }' "$bootstrap_config")
-case "$remote_base" in /*) ;; *) printf '%s\n' 'CAMPUS_REMOTE_DEPLOY_ROOT 必须是绝对路径' >&2; exit 1 ;; esac
+case "$remote_base" in
+/|''|*[!A-Za-z0-9_./-]*|*/../*|*/..)
+	printf '%s\n' 'CAMPUS_REMOTE_DEPLOY_ROOT 必须是安全的绝对路径且不能包含 ..' >&2
+	exit 1
+	;;
+/*) ;;
+*) printf '%s\n' 'CAMPUS_REMOTE_DEPLOY_ROOT 必须是绝对路径' >&2; exit 1 ;;
+esac
 if [ "$role" = provider ] && [ ! -s "$source_dir/provider-config.yaml" ]; then
 	"$(dirname "$0")/render-provider-config.sh" "$environment" "$source_dir/provider-config.yaml"
 fi

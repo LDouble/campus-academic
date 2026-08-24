@@ -30,8 +30,11 @@ if CAMPUS_PROVIDER_ACTIVE_PROVIDER=example-university \
 fi
 grep -q '^sentinel$' "$root/custom.yaml"
 
-CAMPUS_PROVIDER_ACTIVE_PROVIDER=example-university \
+if CAMPUS_PROVIDER_ACTIVE_PROVIDER=example-university \
 	CAMPUS_ACADEMIC_PROVIDER_CONFIG_SOURCE="$repo_root/deploy/provider-ouc.json" \
-	"$repo_root/scripts/render-provider-config.sh" production "$root/custom.yaml"
-grep -q '^  active_provider: example-university$' "$root/custom.yaml"
-grep -q '^  example-university: |$' "$root/custom.yaml"
+	"$repo_root/scripts/render-provider-config.sh" production "$root/custom.yaml" >"$root/custom.out" 2>&1; then
+	printf '%s\n' 'unsupported custom Provider was accepted' >&2
+	exit 1
+fi
+grep -q '仅支持 ouc' "$root/custom.out"
+grep -q '^sentinel$' "$root/custom.yaml"
