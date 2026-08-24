@@ -80,6 +80,7 @@ type AnalyticsConfig struct {
 	SourceDSN         string        `yaml:"-"`
 	Timezone          string        `yaml:"timezone"`
 	ScheduleHour      int           `yaml:"schedule_hour"`
+	RetryDelay        time.Duration `yaml:"retry_delay"`
 	MinimumSampleSize int64         `yaml:"minimum_sample_size"`
 	QueryTimeout      time.Duration `yaml:"query_timeout"`
 	WorkerConcurrency int           `yaml:"worker_concurrency"`
@@ -279,6 +280,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.Analytics.ScheduleHour == 0 {
 		cfg.Analytics.ScheduleHour = 4
 	}
+	if cfg.Analytics.RetryDelay <= 0 {
+		cfg.Analytics.RetryDelay = 15 * time.Minute
+	}
 	if cfg.Analytics.MinimumSampleSize <= 0 {
 		cfg.Analytics.MinimumSampleSize = 5
 	}
@@ -334,6 +338,9 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Analytics.Redis.ClientCertFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_CERT_FILE")
 	setString(&cfg.Analytics.Redis.ClientKeyFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE")
 	setString(&cfg.Analytics.Redis.ServerName, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME")
+	if err := setDuration(&cfg.Analytics.RetryDelay, "CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY"); err != nil {
+		return err
+	}
 	setString(&cfg.Observability.MetricsAddress, "CAMPUS_ACADEMIC_METRICS_ADDRESS")
 	return nil
 }
@@ -365,6 +372,19 @@ func setBool(target *bool, name string) error {
 	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
 	if err != nil {
 		return fmt.Errorf("%s must be a boolean", name)
+	}
+	*target = parsed
+	return nil
+}
+
+func setDuration(target *time.Duration, name string) error {
+	value, configured := os.LookupEnv(name)
+	if !configured || strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parsed, err := time.ParseDuration(strings.TrimSpace(value))
+	if err != nil || parsed <= 0 {
+		return fmt.Errorf("%s must be a positive duration", name)
 	}
 	*target = parsed
 	return nil
@@ -456,6 +476,9 @@ func validate(cfg Config, service component) error {
 	}
 	if cfg.Analytics.MinimumSampleSize < 1 {
 		return errors.New("analytics minimum sample size must be positive")
+	}
+	if cfg.Analytics.RetryDelay <= 0 {
+		return errors.New("analytics retry delay must be positive")
 	}
 	return nil
 }
