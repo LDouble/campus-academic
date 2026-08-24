@@ -17,12 +17,20 @@ grep -Fq 'command: ["/app/academic-provider"]' "$provider_compose" || {
   printf '%s\n' 'Provider Compose 未显式选择 Provider 命令' >&2
   exit 1
 }
+grep -Fq 'CAMPUS_ACADEMIC_PROVIDER_METRICS_PUBLISHED_PORT' "$provider_compose" || {
+  printf '%s\n' 'Provider Compose 未发布受限指标端口' >&2
+  exit 1
+}
 grep -Fq 'entrypoint: ["/app/academicctl"]' "$analytics_compose" || {
   printf '%s\n' 'Analytics 迁移未显式选择 academicctl' >&2
   exit 1
 }
 grep -Fq 'command: ["/app/academic-analytics"]' "$analytics_compose" || {
   printf '%s\n' 'Analytics Compose 未显式选择 Analytics 命令' >&2
+  exit 1
+}
+grep -Fq 'CAMPUS_ACADEMIC_ANALYTICS_METRICS_PUBLISHED_PORT' "$analytics_compose" || {
+  printf '%s\n' 'Analytics Compose 未发布受限指标端口' >&2
   exit 1
 }
 

@@ -101,6 +101,11 @@ ACR Tag 自动构建若只能读取仓库根目录 `Dockerfile`，则直接使�
 Compose 必须显式指定对应命令。Provider 与 Analytics 可以写入两个 ACR 仓库，但相同
 Git Tag 对应的二进制内容和源码版本一致。
 
+独立 Prometheus 通过 VPC 拉取应用指标。Provider 主机默认发布
+`127.0.0.1:9300`，Analytics 主机默认发布 `127.0.0.1:9301`；Production 必须把对应
+`*_METRICS_BIND_ADDRESS` 设置为主机 VPC IP，并在安全组中只允许 Observability 主机访问，
+禁止将指标端口绑定公网地址或对 `0.0.0.0/0` 放行。
+
 使用专用 Dockerfile 时，Provider 镜像只包含 `academic-provider`，Analytics 镜像包含
 `academic-analytics`、数据库迁移命令 `academicctl` 和 `migrations/`。使用根目录复合
 Dockerfile 时，两侧 ACR 镜像包含相同的三个二进制和迁移文件；无论采用哪种构建方式，
