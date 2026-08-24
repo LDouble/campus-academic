@@ -10,6 +10,10 @@ case "$role" in provider|analytics) ;; *) exit 2 ;; esac
 case "$state_root" in /*) ;; *) printf '%s\n' 'CAMPUS_DEPLOY_STATE_DIR 必须是绝对路径' >&2; exit 1 ;; esac
 source_dir=$state_root/$environment/roles/$role/files
 [ -s "$source_dir/bootstrap.yaml" ] || { printf '%s\n' "缺少 $role bootstrap.yaml: $source_dir" >&2; exit 1; }
+bootstrap_config=$state_root/$environment/bootstrap.env
+[ -r "$bootstrap_config" ] || { printf '%s\n' "缺少 bootstrap 配置: $bootstrap_config" >&2; exit 1; }
+remote_base=$(awk -F= '$1 == "CAMPUS_REMOTE_DEPLOY_ROOT" { print substr($0, length($1) + 2); found++ } END { if (found != 1) exit 1 }' "$bootstrap_config")
+case "$remote_base" in /*) ;; *) printf '%s\n' 'CAMPUS_REMOTE_DEPLOY_ROOT 必须是绝对路径' >&2; exit 1 ;; esac
 if [ "$role" = provider ] && [ ! -s "$source_dir/provider-config.yaml" ]; then
 	"$(dirname "$0")/render-provider-config.sh" "$environment" "$source_dir/provider-config.yaml"
 fi
@@ -40,7 +44,7 @@ printf 'environment=%s\nrole=%s\nschema=1\n' "$environment" "$role" >"$work/bund
 ) >"$work/manifest.sha256"
 bundle_id=$(openssl dgst -sha256 "$work/manifest.sha256" | awk '{print $NF}')
 printf '%s\n' "$bundle_id" >"$work/bundle.id"
-remote_root=/opt/campus/bootstrap/$environment/$role
+remote_root=$remote_base/bootstrap/$environment/$role
 remote_release=$remote_root/releases/$bundle_id
 academic_root=/opt/campus-academic-$environment
 ssh -o BatchMode=yes "$target" "sudo install -d -m 0700 '$remote_release'"
