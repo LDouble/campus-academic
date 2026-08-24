@@ -13,4 +13,3 @@ done
 [ -s "$state_root/$environment/roles/provider/files/provider-config.yaml" ] || { printf '%s\n' '缺少 Provider 配置' >&2; exit 1; }
 [ -s "$state_root/$environment/roles/analytics/files/redis.conf" ] || { printf '%s\n' '缺少 Analytics Redis 配置' >&2; exit 1; }
 printf '%s\n' "academic bootstrap configuration is valid: $state_root/$environment"
-

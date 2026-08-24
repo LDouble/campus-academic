@@ -33,4 +33,3 @@ trap 'rm -f "$temporary"' EXIT HUP INT TERM
 chmod 0600 "$temporary"
 mv "$temporary" "$output"
 trap - EXIT HUP INT TERM
-
