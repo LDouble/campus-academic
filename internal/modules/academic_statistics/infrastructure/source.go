@@ -193,6 +193,7 @@ type GradeAggregateSource struct {
 	db            *sql.DB
 	timeout       time.Duration
 	tlsConfigName string
+	allowWrites   bool
 }
 
 // PinnedGradeSourceConfig describes the operator-only source connection. Host
@@ -209,10 +210,11 @@ type PinnedGradeSourceConfig struct {
 }
 
 // NewGradeAggregateSource validates the source DSN and configures a small
-// read-only connection pool.
+// connection pool with an explicit source-grant policy.
 func NewGradeAggregateSource(
 	dsn string,
 	timeout time.Duration,
+	allowWrites bool,
 ) (*GradeAggregateSource, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -222,8 +224,9 @@ func NewGradeAggregateSource(
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(30 * time.Minute)
 	return &GradeAggregateSource{
-		db:      db,
-		timeout: timeout,
+		db:          db,
+		timeout:     timeout,
+		allowWrites: allowWrites,
 	}, nil
 }
 
@@ -296,7 +299,7 @@ func (source *GradeAggregateSource) Close() error {
 }
 
 // Preflight verifies connectivity, the expected source table/key, and the
-// read-only account grants without creating a product publication batch.
+// least-privilege account grants without creating a product publication batch.
 func (source *GradeAggregateSource) Preflight(parent context.Context) error {
 	if source == nil || source.db == nil {
 		return errors.New("grade aggregate source is unavailable")
@@ -349,14 +352,15 @@ func (source *GradeAggregateSource) Preflight(parent context.Context) error {
 	if err = grantRows.Err(); err != nil {
 		return fmt.Errorf("read grade source grants: %w", err)
 	}
-	if err = validateReadOnlySourceGrants(grants); err != nil {
+	if err = validateSourceGrants(grants, source.allowWrites); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateReadOnlySourceGrants(grants []string) error {
+func validateSourceGrants(grants []string, allowWrites bool) error {
 	hasSelect := false
+	hasRequiredWrites := false
 	for _, grant := range grants {
 		normalized := strings.ToUpper(strings.Join(strings.Fields(grant), " "))
 		switch {
@@ -364,12 +368,20 @@ func validateReadOnlySourceGrants(grants []string) error {
 			if strings.Contains(normalized, " WITH GRANT OPTION") {
 				return errors.New("grade source account must not grant privileges")
 			}
-		case strings.HasPrefix(normalized, "GRANT SELECT ON ") &&
-			strings.Contains(normalized, " TO "):
+		case strings.HasPrefix(normalized, "GRANT SELECT ON ") && strings.Contains(normalized, " TO "):
 			if strings.Contains(normalized, " WITH GRANT OPTION") {
 				return errors.New("grade source account must not grant privileges")
 			}
 			hasSelect = true
+		case strings.HasPrefix(normalized, "GRANT SELECT, INSERT, UPDATE ON ") && strings.Contains(normalized, " TO "):
+			if !allowWrites {
+				return fmt.Errorf("grade source account has a non-read-only grant: %s", redactGrant(grant))
+			}
+			if strings.Contains(normalized, " WITH GRANT OPTION") {
+				return errors.New("grade source account must not grant privileges")
+			}
+			hasSelect = true
+			hasRequiredWrites = true
 		default:
 			return fmt.Errorf(
 				"grade source account has a non-read-only grant: %s",
@@ -379,6 +391,9 @@ func validateReadOnlySourceGrants(grants []string) error {
 	}
 	if !hasSelect {
 		return errors.New("grade source account has no SELECT grant")
+	}
+	if allowWrites && !hasRequiredWrites {
+		return errors.New("managed grade source account requires SELECT, INSERT, UPDATE grant")
 	}
 	return nil
 }

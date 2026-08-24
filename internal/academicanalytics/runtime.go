@@ -68,7 +68,11 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 		return nil, err
 	}
 	runtime.DB = db
-	source, err := statisticsinfra.NewGradeAggregateSource(cfg.Analytics.SourceDSN, cfg.Analytics.QueryTimeout)
+	source, err := statisticsinfra.NewGradeAggregateSource(
+		cfg.Analytics.SourceDSN,
+		cfg.Analytics.QueryTimeout,
+		cfg.Analytics.SourceWritable,
+	)
 	if err != nil {
 		return nil, err
 	}
