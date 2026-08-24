@@ -60,7 +60,7 @@ analytics_value() {
     /^analytics:[[:space:]]*$/ { inside=1; next }
     inside && /^[^[:space:]]/ { exit }
     inside && $0 ~ "^  " key ":[[:space:]]*" {
-      value=$0; sub("^  " key ":[[:space:]]*", "", value); sub(/[[:space:]]+#.*$/, "", value); gsub(/^['\''\"]|['\''\"]$/, "", value); print value; exit
+      value=$0; sub("^  " key ":[[:space:]]*", "", value); sub(/[[:space:]]+#.*$/, "", value); gsub(/^[\047"]|[\047"]$/, "", value); print value; exit
     }
   ' "$1"
 }
@@ -73,7 +73,7 @@ analytics_redis_value() {
     analytics && /^  redis:[[:space:]]*$/ { redis=1; next }
     redis && /^  [^[:space:]]/ { exit }
     redis && $0 ~ "^    " key ":[[:space:]]*" {
-      value=$0; sub("^    " key ":[[:space:]]*", "", value); sub(/[[:space:]]+#.*$/, "", value); gsub(/^['\''\"]|['\''\"]$/, "", value); print value; exit
+      value=$0; sub("^    " key ":[[:space:]]*", "", value); sub(/[[:space:]]+#.*$/, "", value); gsub(/^[\047"]|[\047"]$/, "", value); print value; exit
     }
   ' "$1"
 }

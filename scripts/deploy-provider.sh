@@ -58,7 +58,7 @@ yaml_value() {
       value=$0
       sub("^[[:space:]]*" key ":[[:space:]]*", "", value)
       sub(/[[:space:]]+#.*$/, "", value)
-      gsub(/^['\''\"]|['\''\"]$/, "", value)
+      gsub(/^[\047"]|[\047"]$/, "", value)
       print value
       exit
     }
