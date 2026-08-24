@@ -22,3 +22,16 @@ CAMPUS_PROVIDER_ACTIVE_PROVIDER=ouc \
 grep -q '^  active_provider: ouc$' "$root/provider.yaml"
 grep -q '^  ouc: |$' "$root/provider.yaml"
 
+printf '%s\n' 'sentinel' >"$root/custom.yaml"
+if CAMPUS_PROVIDER_ACTIVE_PROVIDER=example-university \
+	"$repo_root/scripts/render-provider-config.sh" production "$root/custom.yaml" >"$root/custom.out" 2>&1; then
+	printf '%s\n' 'custom Provider accepted implicit OUC source' >&2
+	exit 1
+fi
+grep -q '^sentinel$' "$root/custom.yaml"
+
+CAMPUS_PROVIDER_ACTIVE_PROVIDER=example-university \
+	CAMPUS_ACADEMIC_PROVIDER_CONFIG_SOURCE="$repo_root/deploy/provider-ouc.json" \
+	"$repo_root/scripts/render-provider-config.sh" production "$root/custom.yaml"
+grep -q '^  active_provider: example-university$' "$root/custom.yaml"
+grep -q '^  example-university: |$' "$root/custom.yaml"
