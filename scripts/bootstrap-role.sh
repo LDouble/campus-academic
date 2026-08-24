@@ -21,8 +21,11 @@ case "$remote_base" in
 /*) ;;
 *) printf '%s\n' 'CAMPUS_REMOTE_DEPLOY_ROOT 必须是绝对路径' >&2; exit 1 ;;
 esac
-if [ "$role" = provider ] && [ ! -s "$source_dir/provider-config.yaml" ]; then
-	"$(dirname "$0")/render-provider-config.sh" "$environment" "$source_dir/provider-config.yaml"
+if [ "$role" = provider ]; then
+	[ -s "$source_dir/provider-config.yaml" ] || {
+		printf '%s\n' '缺少 Provider 配置，请先重新执行 campus-deploy setup' >&2
+		exit 1
+	}
 fi
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
@@ -58,14 +61,19 @@ ssh -o BatchMode=yes "$target" "sudo install -d -m 0700 '$remote_release'"
 COPYFILE_DISABLE=1 tar --no-xattrs -cf - -C "$work" . | ssh -o BatchMode=yes "$target" "set -eu
 sudo tar -xf - -C '$remote_release'
 sudo chmod -R go-rwx '$remote_release'
-cd '$remote_release'
-sudo sha256sum -c manifest.sha256 >/dev/null
-expected=\$(sudo cat bundle.id)
-actual=\$(sudo sha256sum manifest.sha256 | awk '{print \$1}')
+sudo sh -c 'set -eu
+release=\$1
+install_root=\$2
+role_root=\$3
+cd \"\$release\"
+sha256sum -c manifest.sha256 >/dev/null
+expected=\$(cat bundle.id)
+actual=\$(sha256sum manifest.sha256 | awk \"{print \\\$1}\")
 test \"\$expected\" = \"\$actual\"
-sudo install -d -m 0755 '$academic_root/scripts' '$academic_root/deploy'
-for file in assets/scripts/*; do sudo install -m 0755 \"\$file\" '$academic_root/scripts/'; done
-for file in assets/deploy/*; do sudo install -m 0644 \"\$file\" '$academic_root/deploy/'; done
-sudo ln -sfn '$remote_release' '$remote_root/current.next'
-sudo mv -Tf '$remote_root/current.next' '$remote_root/current'"
+install -d -m 0755 \"\$install_root/scripts\" \"\$install_root/deploy\"
+for file in assets/scripts/*; do install -m 0755 \"\$file\" \"\$install_root/scripts/\"; done
+for file in assets/deploy/*; do install -m 0644 \"\$file\" \"\$install_root/deploy/\"; done
+ln -sfn \"\$release\" \"\$role_root/current.next\"
+mv -Tf \"\$role_root/current.next\" \"\$role_root/current\"
+' sh '$remote_release' '$academic_root' '$remote_root'"
 printf '%s\n' "academic bootstrap installed: environment=$environment role=$role target=$target bundle=$bundle_id"

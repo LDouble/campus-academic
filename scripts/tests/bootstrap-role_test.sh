@@ -16,4 +16,11 @@ for invalid_root in relative / /opt/campus/../escape '/opt/campus bad'; do
 	fi
 done
 
+grep -q "sudo sh -c 'set -eu" "$repo_root/scripts/bootstrap-role.sh"
+if grep -q "^[[:space:]]*cd '\$remote_release'" "$repo_root/scripts/bootstrap-role.sh"; then
+	printf '%s\n' 'remote release is entered outside the privileged shell' >&2
+	exit 1
+fi
+grep -q '请先重新执行 campus-deploy setup' "$repo_root/scripts/bootstrap-role.sh"
+
 printf '%s\n' 'bootstrap-role path tests passed'
