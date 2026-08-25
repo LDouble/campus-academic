@@ -19,6 +19,14 @@ type recordingOUCObserver struct {
 	events []string
 }
 
+type recordingContractDiagnosticCapture struct {
+	samples []ContractDiagnosticSample
+}
+
+func (c *recordingContractDiagnosticCapture) Capture(sample ContractDiagnosticSample) {
+	c.samples = append(c.samples, sample)
+}
+
 func (o *recordingOUCObserver) ObserveAcademicUpstreamAttempt(operation, outcome, educationLevel string) {
 	o.events = append(o.events, strings.Join([]string{operation, outcome, educationLevel}, "/"))
 }
@@ -37,6 +45,27 @@ func TestWithObserverInjectsBoundedAttemptSink(t *testing.T) {
 	provider.observer.ObserveAcademicUpstreamAttempt("courses", "success", "undergraduate")
 	if len(observer.events) != 1 || observer.events[0] != "courses/success/undergraduate" {
 		t.Fatalf("observer events=%v", observer.events)
+	}
+}
+
+func TestTraceQueryParseCapturesCompleteFailedResponse(t *testing.T) {
+	capture := &recordingContractDiagnosticCapture{}
+	body := []byte("<html>unexpected selection table</html>")
+	traceQueryParse(queryResponse{
+		trace: &processTrace{},
+		diagnostic: ContractDiagnosticSample{
+			Body:      body,
+			Encoding:  "html",
+			Operation: "query.selections",
+			Failure:   "contract_error",
+		},
+		capture: capture,
+	}, errors.New("selection parser contract changed"), 0)
+	if len(capture.samples) != 1 {
+		t.Fatalf("capture count=%d, want 1", len(capture.samples))
+	}
+	if string(capture.samples[0].Body) != string(body) {
+		t.Fatalf("captured body=%q, want %q", capture.samples[0].Body, body)
 	}
 }
 

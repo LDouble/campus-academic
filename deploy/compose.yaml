@@ -55,6 +55,7 @@ services:
       CAMPUS_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
       CAMPUS_ACADEMIC_PROVIDER_LISTEN: ":9090"
       CAMPUS_ACADEMIC_METRICS_ADDRESS: ":9300"
+      CAMPUS_ACADEMIC_PROVIDER_DIAGNOSTIC_HTML_DIR: /var/lib/campus-academic/diagnostics
       CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS:-provider-redis:6379}
       CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME:-}
       CAMPUS_ACADEMIC_PROVIDER_REDIS_PASSWORD: ${CAMPUS_ACADEMIC_PROVIDER_REDIS_PASSWORD:-}
@@ -70,6 +71,7 @@ services:
     volumes:
       - ${CAMPUS_ACADEMIC_BOOTSTRAP_HOST_FILE:-../bootstrap.yaml}:/etc/campus-academic/bootstrap.yaml:ro
       - ${CAMPUS_ACADEMIC_PROVIDER_CONFIG_HOST_FILE:-../provider-config.yaml}:/app/provider-config.yaml:ro
+      - ${CAMPUS_ACADEMIC_DIAGNOSTIC_HTML_HOST_DIR:-../.local/academic-diagnostics}:/var/lib/campus-academic/diagnostics
     healthcheck:
       test: ["CMD", "/app/academic-provider", "healthcheck"]
       interval: 10s

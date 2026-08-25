@@ -165,3 +165,14 @@ tls-ca-cert-file /run/secrets/analytics-redis/ca.crt
 `/app/academic-analytics healthcheck`，使用 bootstrap 中的 `127.0.0.1:9091` 与
 Analytics mTLS 客户端材料完成真实 gRPC 健康检查。发布器只有在该检查返回 healthy 后
 才报告完成。
+
+## OUC 页面解析失败留样
+
+Provider 默认将所有页面或 JSON 解析失败的完整学校响应保存到容器
+`/var/lib/campus-academic/diagnostics`。Production 使用
+`CAMPUS_ACADEMIC_DIAGNOSTIC_HTML_HOST_DIR` 挂载宿主机目录；该目录必须仅对
+Provider 运行账户开放，禁止被 Nginx、HTTP 服务、日志采集或备份公开读取。
+
+每次新增留样会清理修改时间超过 48 小时的旧样本。文件名不含学号或请求参数，模式为
+`0600`；日志只给出样本 ID、SHA-256、长度、host/path 和失败阶段，绝不输出原始 HTML、
+Cookie 或凭据。排查完成后可在该受限目录读取对应样本并复现解析器，保留期内不得外传。

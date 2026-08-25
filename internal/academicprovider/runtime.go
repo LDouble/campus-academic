@@ -90,6 +90,10 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 	resolver.Start(ctx)
 	metricsRegistry := observability.New("academic-provider", cfg.Release)
 	runtime.Metrics = metricsRegistry
+	diagnostics, err := ouc.NewFileContractDiagnosticCapture(cfg.Provider.DiagnosticHTMLDir, log)
+	if err != nil {
+		return nil, fmt.Errorf("init OUC contract diagnostics: %w", err)
+	}
 	sessions, err := ouc.NewEncryptedRedisSessionStore(
 		rdb,
 		cipher,
@@ -104,6 +108,7 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 		ouc.WithSessionStore(sessions),
 		ouc.WithLogger(log),
 		ouc.WithObserver(metricsRegistry),
+		ouc.WithContractDiagnosticCapture(diagnostics),
 	)
 	runtime.OUC = oucProvider
 	coordinatedOUC, err := querycoord.New(

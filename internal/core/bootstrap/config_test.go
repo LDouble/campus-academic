@@ -35,6 +35,9 @@ analytics:
 	if cfg.Provider.Target != "127.0.0.1:9090" {
 		t.Fatalf("provider target = %q, want healthcheck loopback target", cfg.Provider.Target)
 	}
+	if cfg.Provider.DiagnosticHTMLDir != "/var/lib/campus-academic/diagnostics" {
+		t.Fatalf("provider diagnostic directory = %q", cfg.Provider.DiagnosticHTMLDir)
+	}
 	if cfg.Analytics.MySQL.DSN != "" || cfg.Analytics.SourceDSN != "" {
 		t.Fatalf("provider loader unexpectedly populated analytics credentials: %+v", cfg.Analytics)
 	}
@@ -159,6 +162,20 @@ func TestProviderTargetEnvironmentOverride(t *testing.T) {
 	}
 }
 
+func TestProviderDiagnosticDirectoryEnvironmentOverride(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_PROVIDER_DIAGNOSTIC_HTML_DIR", "/srv/provider-diagnostics")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	cfg, err := LoadProvider(path)
+	if err != nil {
+		t.Fatalf("LoadProvider() error = %v", err)
+	}
+	if cfg.Provider.DiagnosticHTMLDir != "/srv/provider-diagnostics" {
+		t.Fatalf("provider diagnostic directory = %q", cfg.Provider.DiagnosticHTMLDir)
+	}
+}
+
 func TestProductionRedisRequiresTLS(t *testing.T) {
 	setEmptyAcademicEnvironment(t)
 	t.Setenv("CAMPUS_ACADEMIC_PROVIDER_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
@@ -197,6 +214,7 @@ func setEmptyAcademicEnvironment(t *testing.T) {
 		"CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN",
 		"CAMPUS_ACADEMIC_PROVIDER_LISTEN",
 		"CAMPUS_ACADEMIC_PROVIDER_TARGET",
+		"CAMPUS_ACADEMIC_PROVIDER_DIAGNOSTIC_HTML_DIR",
 		"CAMPUS_ACADEMIC_ANALYTICS_LISTEN",
 		"CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS",
 		"CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME",
