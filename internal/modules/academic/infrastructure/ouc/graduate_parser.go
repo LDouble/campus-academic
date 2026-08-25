@@ -113,12 +113,12 @@ func parseGraduateGrades(
 	rows := graduateTableRows(table)
 	result := make([]domain.Grade, 0, len(rows))
 	for index, row := range rows {
-		period, ok := graduatePeriod(
+		resolvedPeriodID, ok := graduateGradePeriodID(
 			fieldString(row, "选课学年"),
 			fieldString(row, "学期"),
 			time.Now(),
 		)
-		if !ok || (periodID != "" && period.ID != periodID) {
+		if !ok || (periodID != "" && resolvedPeriodID != periodID) {
 			continue
 		}
 		name := fieldString(row, "课程名称")
@@ -133,8 +133,8 @@ func parseGraduateGrades(
 		code := fieldString(row, "课程编号")
 		credit, _ := fieldFloat(row, "学分")
 		result = append(result, domain.Grade{
-			ID:         fmt.Sprintf("%s:%s:%d", period.ID, code, index+1),
-			PeriodID:   period.ID,
+			ID:         fmt.Sprintf("%s:%s:%d", resolvedPeriodID, code, index+1),
+			PeriodID:   resolvedPeriodID,
 			CourseCode: code,
 			CourseName: name,
 			CourseType: fieldString(row, "课程性质"),
@@ -145,6 +145,33 @@ func parseGraduateGrades(
 		})
 	}
 	return result, nil
+}
+
+// graduateGradePeriodID keeps a released grade visible when the upstream
+// record provides a valid academic year but omits its term. In that case, the
+// original academic year remains the stable grouping value instead of guessing
+// a term that the upstream system did not provide.
+func graduateGradePeriodID(academicYear string, term string, now time.Time) (string, bool) {
+	period, ok := graduatePeriod(academicYear, term, now)
+	if ok {
+		return period.ID, true
+	}
+
+	academicYear = strings.TrimSpace(academicYear)
+	if strings.TrimSpace(term) != "" || !validGraduateAcademicYear(academicYear) {
+		return "", false
+	}
+	return academicYear, true
+}
+
+func validGraduateAcademicYear(academicYear string) bool {
+	match := graduateAcademicYearPattern.FindStringSubmatch(academicYear)
+	if len(match) != 3 {
+		return false
+	}
+	startYear, startErr := strconv.Atoi(match[1])
+	endYear, endErr := strconv.Atoi(match[2])
+	return startErr == nil && endErr == nil && endYear == startYear+1
 }
 
 func parseGraduateSelections(

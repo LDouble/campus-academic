@@ -34,6 +34,11 @@ const graduateCoursePlanFixture = `
     <td>1.0</td><td>2018-2019</td><td>春</td><td>测试教师</td>
     <td><span>在修</span></td>
   </tr>
+  <tr>
+    <td><span>必修</span></td><td>GR004</td><td>海洋数据分析</td><td>专业课</td>
+    <td>2.0</td><td>2019-2020</td><td></td><td>测试教师</td>
+    <td><span class="cgreen">已获得学分 | 91.0</span></td>
+  </tr>
 </table>
 </body></html>`
 
@@ -64,7 +69,7 @@ func TestParseGraduateGradesFromCoursePlan(t *testing.T) {
 	}{
 		{
 			name:      "all periods",
-			wantCount: 2,
+			wantCount: 3,
 			check: func(t *testing.T, grades []domain.Grade) {
 				t.Helper()
 				if grades[0].Score == nil || *grades[0].Score != 87 ||
@@ -76,6 +81,10 @@ func TestParseGraduateGradesFromCoursePlan(t *testing.T) {
 					grades[1].PeriodID != "2018:12" {
 					t.Fatalf("level grade=%+v", grades[1])
 				}
+				if grades[2].Score == nil || *grades[2].Score != 91 ||
+					grades[2].PeriodID != "2019-2020" {
+					t.Fatalf("year-only grade=%+v", grades[2])
+				}
 			},
 		},
 		{
@@ -86,6 +95,17 @@ func TestParseGraduateGradesFromCoursePlan(t *testing.T) {
 				t.Helper()
 				if grades[0].CourseCode != "GR002" {
 					t.Fatalf("grade=%+v", grades[0])
+				}
+			},
+		},
+		{
+			name:      "academic year without term",
+			periodID:  "2019-2020",
+			wantCount: 1,
+			check: func(t *testing.T, grades []domain.Grade) {
+				t.Helper()
+				if grades[0].CourseCode != "GR004" || grades[0].PeriodID != "2019-2020" {
+					t.Fatalf("year-only grade=%+v", grades[0])
 				}
 			},
 		},
