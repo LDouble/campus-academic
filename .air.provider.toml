@@ -1,9 +1,9 @@
 root = "."
-tmp_dir = ".local/air/provider"
+tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o ./.local/air/provider/academic-provider ./cmd/academic-provider"
-bin = "./.local/air/provider/academic-provider"
+cmd = "go build -o ./tmp/academic-provider ./cmd/academic-provider"
+bin = "./tmp/academic-provider"
 include_ext = ["go", "yaml"]
 exclude_dir = [".git", ".local", "deploy", "tmp", "vendor"]
 
