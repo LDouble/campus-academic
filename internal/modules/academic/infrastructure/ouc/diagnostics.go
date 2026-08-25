@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,8 +15,11 @@ import (
 )
 
 const (
-	contractDiagnosticRetention = 48 * time.Hour
-	contractDiagnosticQueueSize = 16
+	contractDiagnosticRetention       = 48 * time.Hour
+	contractDiagnosticQueueSize       = 16
+	contractDiagnosticMaxSamples      = 128
+	contractDiagnosticMaxBytes        = 128 << 20
+	contractDiagnosticCleanupInterval = time.Minute
 )
 
 // ContractDiagnosticSample is a raw upstream response that could not be
@@ -40,10 +44,11 @@ type ContractDiagnosticCapture interface {
 }
 
 type fileContractDiagnosticCapture struct {
-	dir   string
-	log   *zap.Logger
-	now   func() time.Time
-	queue chan ContractDiagnosticSample
+	dir             string
+	log             *zap.Logger
+	now             func() time.Time
+	queue           chan ContractDiagnosticSample
+	cleanupInterval time.Duration
 
 	mu      sync.Mutex
 	closed  bool
@@ -54,6 +59,15 @@ type fileContractDiagnosticCapture struct {
 // NewFileContractDiagnosticCapture stores contract-failure responses in a
 // protected local directory. Samples are retained for exactly two days.
 func NewFileContractDiagnosticCapture(dir string, log *zap.Logger) (*fileContractDiagnosticCapture, error) {
+	return newFileContractDiagnosticCapture(dir, log, time.Now, contractDiagnosticCleanupInterval)
+}
+
+func newFileContractDiagnosticCapture(
+	dir string,
+	log *zap.Logger,
+	now func() time.Time,
+	cleanupInterval time.Duration,
+) (*fileContractDiagnosticCapture, error) {
 	dir = strings.TrimSpace(dir)
 	if !filepath.IsAbs(dir) {
 		return nil, fmt.Errorf("contract diagnostic directory must be absolute")
@@ -67,11 +81,18 @@ func NewFileContractDiagnosticCapture(dir string, log *zap.Logger) (*fileContrac
 	if log == nil {
 		log = zap.NewNop()
 	}
+	if now == nil {
+		now = time.Now
+	}
+	if cleanupInterval <= 0 {
+		cleanupInterval = contractDiagnosticCleanupInterval
+	}
 	capture := &fileContractDiagnosticCapture{
-		dir:   dir,
-		log:   log,
-		now:   time.Now,
-		queue: make(chan ContractDiagnosticSample, contractDiagnosticQueueSize),
+		dir:             dir,
+		log:             log,
+		now:             now,
+		queue:           make(chan ContractDiagnosticSample, contractDiagnosticQueueSize),
+		cleanupInterval: cleanupInterval,
 	}
 	capture.done.Add(1)
 	go capture.run()
@@ -115,17 +136,29 @@ func (c *fileContractDiagnosticCapture) Close() {
 
 func (c *fileContractDiagnosticCapture) run() {
 	defer c.done.Done()
-	for sample := range c.queue {
-		if dropped := c.dropped.Swap(0); dropped > 0 {
-			c.log.Warn("dropped OUC contract diagnostics because capture queue was full", zap.Uint64("dropped", dropped))
+	ticker := time.NewTicker(c.cleanupInterval)
+	defer ticker.Stop()
+	c.cleanExpired()
+	for {
+		select {
+		case sample, ok := <-c.queue:
+			if !ok {
+				return
+			}
+			if dropped := c.dropped.Swap(0); dropped > 0 {
+				c.log.Warn("dropped OUC contract diagnostics because capture queue was full", zap.Uint64("dropped", dropped))
+			}
+			c.capture(sample)
+		case <-ticker.C:
+			c.cleanExpired()
 		}
-		c.capture(sample)
 	}
 }
 
 func (c *fileContractDiagnosticCapture) capture(sample ContractDiagnosticSample) {
-	if err := c.removeExpired(); err != nil {
-		c.log.Warn("clean OUC contract diagnostics failed", zap.Error(err))
+	if err := c.prepareStorage(int64(len(sample.Body))); err != nil {
+		c.log.Warn("skip OUC contract diagnostic", zap.Error(err), zap.String("operation", sample.Operation))
+		return
 	}
 	extension := ".html"
 	if strings.EqualFold(strings.TrimSpace(sample.Encoding), "json") {
@@ -161,6 +194,59 @@ func (c *fileContractDiagnosticCapture) capture(sample ContractDiagnosticSample)
 		zap.String("stage", sample.Stage),
 		zap.String("failure", sample.Failure),
 	)
+}
+
+type diagnosticFile struct {
+	path     string
+	modified time.Time
+	size     int64
+}
+
+func (c *fileContractDiagnosticCapture) prepareStorage(incomingBytes int64) error {
+	if incomingBytes > contractDiagnosticMaxBytes {
+		return fmt.Errorf("contract diagnostic response exceeds %d byte storage limit", contractDiagnosticMaxBytes)
+	}
+	entries, err := os.ReadDir(c.dir)
+	if err != nil {
+		return err
+	}
+	cutoff := c.now().Add(-contractDiagnosticRetention)
+	files := make([]diagnosticFile, 0, len(entries))
+	var retainedBytes int64
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "ouc-contract-") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(c.dir, entry.Name())
+		if info.ModTime().Before(cutoff) {
+			if err := os.Remove(path); err != nil {
+				return err
+			}
+			continue
+		}
+		files = append(files, diagnosticFile{path: path, modified: info.ModTime(), size: info.Size()})
+		retainedBytes += info.Size()
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].modified.Before(files[j].modified) })
+	for len(files) >= contractDiagnosticMaxSamples || retainedBytes+incomingBytes > contractDiagnosticMaxBytes {
+		oldest := files[0]
+		if err := os.Remove(oldest.path); err != nil {
+			return err
+		}
+		retainedBytes -= oldest.size
+		files = files[1:]
+	}
+	return nil
+}
+
+func (c *fileContractDiagnosticCapture) cleanExpired() {
+	if err := c.removeExpired(); err != nil {
+		c.log.Warn("clean OUC contract diagnostics failed", zap.Error(err))
+	}
 }
 
 func (c *fileContractDiagnosticCapture) removeExpired() error {

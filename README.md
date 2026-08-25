@@ -47,6 +47,7 @@ docker compose -f deploy/compose.yaml --profile local up -d
 ```bash
 CAMPUS_ACADEMIC_PROVIDER_KEY=$(openssl rand -base64 32) \
 CAMPUS_ACADEMIC_QUERY_KEY=$(openssl rand -base64 32) \
+CAMPUS_ACADEMIC_PROVIDER_DIAGNOSTIC_HTML_DIR="$PWD/.local/academic-diagnostics" \
 go run ./cmd/academic-provider
 ```
 
