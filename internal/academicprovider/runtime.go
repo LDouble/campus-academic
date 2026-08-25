@@ -30,15 +30,16 @@ import (
 
 // Runtime owns the dependencies used only by the private academic provider.
 type Runtime struct {
-	Redis   *redis.Client
-	Logger  *zap.Logger
-	Config  *academicconfig.Resolver
-	Limits  *ratelimitconfig.Resolver
-	Server  *grpc.Server
-	Health  *health.Server
-	Metrics *observability.Registry
-	OUC     *ouc.Provider
-	closed  bool
+	Redis       *redis.Client
+	Logger      *zap.Logger
+	Config      *academicconfig.Resolver
+	Limits      *ratelimitconfig.Resolver
+	Server      *grpc.Server
+	Health      *health.Server
+	Metrics     *observability.Registry
+	OUC         *ouc.Provider
+	Diagnostics interface{ Close() }
+	closed      bool
 }
 
 // Build initializes the provider router, encrypted session cache and gRPC server.
@@ -94,6 +95,7 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init OUC contract diagnostics: %w", err)
 	}
+	runtime.Diagnostics = diagnostics
 	sessions, err := ouc.NewEncryptedRedisSessionStore(
 		rdb,
 		cipher,
@@ -215,6 +217,9 @@ func (r *Runtime) Close() error {
 		if err := r.OUC.Close(); err != nil && first == nil {
 			first = err
 		}
+	}
+	if r.Diagnostics != nil {
+		r.Diagnostics.Close()
 	}
 	if r.Redis != nil {
 		if err := r.Redis.Close(); err != nil && first == nil {

@@ -23,9 +23,11 @@ func TestFileContractDiagnosticCaptureWritesProtectedFullResponseAndRemovesExpir
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(capture.Close)
 	capture.now = func() time.Time { return then }
 	body := []byte("<html><body>changed table</body></html>")
 	capture.Capture(ContractDiagnosticSample{Body: body, Encoding: "html", Operation: "query.selections"})
+	capture.Close()
 	if _, err := os.Stat(old); !os.IsNotExist(err) {
 		t.Fatalf("expired sample still exists, err=%v", err)
 	}
@@ -50,6 +52,24 @@ func TestFileContractDiagnosticCaptureWritesProtectedFullResponseAndRemovesExpir
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("sample mode=%#o, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestFileContractDiagnosticCaptureDoesNotBlockWhenQueueIsFull(t *testing.T) {
+	capture := &fileContractDiagnosticCapture{
+		log:   zap.NewNop(),
+		queue: make(chan ContractDiagnosticSample, 1),
+	}
+	capture.queue <- ContractDiagnosticSample{Body: []byte("queued")}
+	done := make(chan struct{})
+	go func() {
+		capture.Capture(ContractDiagnosticSample{Body: []byte("dropped")})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Capture blocked on a full queue")
 	}
 }
 

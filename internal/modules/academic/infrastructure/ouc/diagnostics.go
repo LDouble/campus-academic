@@ -6,12 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-const contractDiagnosticRetention = 48 * time.Hour
+const (
+	contractDiagnosticRetention = 48 * time.Hour
+	contractDiagnosticQueueSize = 16
+)
 
 // ContractDiagnosticSample is a raw upstream response that could not be
 // interpreted by the Provider. It deliberately excludes all credentials and
@@ -35,9 +40,15 @@ type ContractDiagnosticCapture interface {
 }
 
 type fileContractDiagnosticCapture struct {
-	dir string
-	log *zap.Logger
-	now func() time.Time
+	dir   string
+	log   *zap.Logger
+	now   func() time.Time
+	queue chan ContractDiagnosticSample
+
+	mu      sync.Mutex
+	closed  bool
+	done    sync.WaitGroup
+	dropped atomic.Uint64
 }
 
 // NewFileContractDiagnosticCapture stores contract-failure responses in a
@@ -56,13 +67,63 @@ func NewFileContractDiagnosticCapture(dir string, log *zap.Logger) (*fileContrac
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &fileContractDiagnosticCapture{dir: dir, log: log, now: time.Now}, nil
+	capture := &fileContractDiagnosticCapture{
+		dir:   dir,
+		log:   log,
+		now:   time.Now,
+		queue: make(chan ContractDiagnosticSample, contractDiagnosticQueueSize),
+	}
+	capture.done.Add(1)
+	go capture.run()
+	return capture, nil
 }
 
+// Capture transfers the immutable response body to a bounded queue and returns
+// immediately. A full queue intentionally drops new samples rather than adding
+// latency to an already failed academic request.
 func (c *fileContractDiagnosticCapture) Capture(sample ContractDiagnosticSample) {
 	if c == nil || len(sample.Body) == 0 {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	select {
+	case c.queue <- sample:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// Close finishes queued writes during graceful provider shutdown.
+func (c *fileContractDiagnosticCapture) Close() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return
+	}
+	c.closed = true
+	close(c.queue)
+	c.mu.Unlock()
+	c.done.Wait()
+}
+
+func (c *fileContractDiagnosticCapture) run() {
+	defer c.done.Done()
+	for sample := range c.queue {
+		if dropped := c.dropped.Swap(0); dropped > 0 {
+			c.log.Warn("dropped OUC contract diagnostics because capture queue was full", zap.Uint64("dropped", dropped))
+		}
+		c.capture(sample)
+	}
+}
+
+func (c *fileContractDiagnosticCapture) capture(sample ContractDiagnosticSample) {
 	if err := c.removeExpired(); err != nil {
 		c.log.Warn("clean OUC contract diagnostics failed", zap.Error(err))
 	}
