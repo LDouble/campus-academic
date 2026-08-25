@@ -18,6 +18,14 @@ grep -Fq '${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090' "$repo_root/dep
   echo 'Provider 独立 Compose 缺少可配置发布端口' >&2
   exit 1
 }
+grep -Fq 'provider-diagnostics-init:' "$repo_root/deploy/provider.compose.yaml" || {
+  echo 'Provider 独立 Compose 缺少诊断目录初始化服务' >&2
+  exit 1
+}
+grep -Fq 'provider-diagnostics-init:' "$repo_root/deploy/compose.yaml" || {
+  echo '本地 Compose 缺少诊断目录初始化服务' >&2
+  exit 1
+}
 if grep -Eq 'academic-analytics|analytics-mysql|analytics-redis|^[[:space:]]+provider-redis:' "$repo_root/deploy/provider.compose.yaml"; then
   echo 'Provider 独立 Compose 混入了非 Provider 服务或本机 Redis' >&2
   exit 1
@@ -183,6 +191,7 @@ printf '%s' "$first_output" | grep -q '调用独立 campus-atrust-gateway 依赖
 printf '%s' "$first_output" | grep -q 'independent gateway ensured'
 printf '%s' "$first_output" | grep -q 'production Provider 发布完成'
 grep -q "^production|$test_root/provider.env$" "$test_root/gateway.log"
+grep -q 'provider-diagnostics-init' "$fake_log"
 grep -q 'COMPOSE_PROJECT_NAME=campus-academic-production-provider .*academic-provider' "$fake_log"
 
 sed 's/active_provider: ouc/active_provider: mock/' "$test_root/provider-config.yaml" >"$test_root/provider-config.mock.yaml"

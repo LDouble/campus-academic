@@ -1,12 +1,25 @@
 # Provider 独立主机 Compose。Provider Redis 由同角色的共享 Redis 发布步骤管理，
 # 本文件刻意不定义 Analytics、Analytics MySQL 或 Analytics Redis。
 services:
+  provider-diagnostics-init:
+    image: alpine:3.22
+    user: "0:0"
+    command:
+      - /bin/sh
+      - -ec
+      - mkdir -p /var/lib/campus-academic/diagnostics && chown 65532:65532 /var/lib/campus-academic/diagnostics && chmod 0700 /var/lib/campus-academic/diagnostics
+    volumes:
+      - ${CAMPUS_ACADEMIC_DIAGNOSTIC_HTML_HOST_DIR:-/var/lib/campus-academic/diagnostics}:/var/lib/campus-academic/diagnostics
+
   academic-provider:
     image: ${CAMPUS_ACADEMIC_PROVIDER_IMAGE:?set CAMPUS_ACADEMIC_PROVIDER_IMAGE}
     command: ["/app/academic-provider"]
     ports:
       - "${CAMPUS_ACADEMIC_PROVIDER_BIND_ADDRESS:-0.0.0.0}:${CAMPUS_ACADEMIC_PROVIDER_PUBLISHED_PORT:-9090}:9090"
       - "${CAMPUS_ACADEMIC_PROVIDER_METRICS_BIND_ADDRESS:-127.0.0.1}:${CAMPUS_ACADEMIC_PROVIDER_METRICS_PUBLISHED_PORT:-9300}:9300"
+    depends_on:
+      provider-diagnostics-init:
+        condition: service_completed_successfully
     environment:
       CAMPUS_ACADEMIC_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml
       CAMPUS_BOOTSTRAP_FILE: /etc/campus-academic/bootstrap.yaml

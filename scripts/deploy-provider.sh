@@ -204,6 +204,9 @@ provider_compose config --quiet
 echo "调用独立 campus-atrust-gateway 依赖发布器"
 ATRUST_ENV_FILE="$env_file" "$atrust_gateway_home/scripts/ensure-gateway.sh" "$environment"
 
+echo "初始化 Provider 诊断留样目录权限"
+provider_compose run --rm --no-deps provider-diagnostics-init
+
 echo "开始发布 Academic Provider"
 provider_compose up -d --no-deps --no-build academic-provider
 provider_container=$(provider_compose ps -q academic-provider)

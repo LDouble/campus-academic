@@ -172,6 +172,9 @@ Provider 默认将所有页面或 JSON 解析失败的完整学校响应保存�
 `/var/lib/campus-academic/diagnostics`。Production 使用
 `CAMPUS_ACADEMIC_DIAGNOSTIC_HTML_HOST_DIR` 挂载宿主机目录；该目录必须仅对
 Provider 运行账户开放，禁止被 Nginx、HTTP 服务、日志采集或备份公开读取。
+Compose 会先以 root 运行一次 `provider-diagnostics-init`，为 bind mount 创建目录并将其
+所有者设为 Provider 的 `nonroot` UID `65532`、模式设为 `0700`；Provider 本身不依赖修改
+宿主机挂载权限，因此首次部署和本地默认目录均可启动。
 
 留样通过容量为 16 的异步队列落盘，不阻塞失败请求的响应；队列满时会丢弃新样本并仅记录
 安全元信息。写入工作者会在处理新样本前清理修改时间超过 48 小时的旧样本。文件名不含学号
