@@ -1,0 +1,14 @@
+# Local-only host access for Provider/Analytics processes running outside Docker.
+# This file must not be used for Review or production deployment.
+services:
+  provider-redis:
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_PROVIDER_REDIS_PORT:-6381}:6379"
+
+  analytics-redis:
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_ANALYTICS_REDIS_PORT:-6382}:6379"
+
+  analytics-mysql:
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_ANALYTICS_MYSQL_PORT:-3307}:3306"
