@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = ".local/air/analytics"
+
+[build]
+cmd = "go build -o ./.local/air/analytics/academic-analytics ./cmd/academic-analytics"
+bin = "./.local/air/analytics/academic-analytics"
+include_ext = ["go", "yaml"]
+exclude_dir = [".git", ".local", "deploy", "tmp", "vendor"]
+
+[log]
+time = true

@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet fmt generate generate-check migration-up production review analytics-production analytics-review test-deploy test-deploy-provider test-deploy-analytics test-composite-image test-provider-config test-render-provider-config test-bootstrap-role bootstrap-render-provider-config bootstrap-prepare deploy-bootstrap deploy-validate
+.PHONY: build test test-race vet fmt generate generate-check migration-up dev-provider dev-analytics production review analytics-production analytics-review test-deploy test-deploy-provider test-deploy-analytics test-composite-image test-provider-config test-render-provider-config test-bootstrap-role bootstrap-render-provider-config bootstrap-prepare deploy-bootstrap deploy-validate
 
 BUF ?= go run github.com/bufbuild/buf/cmd/buf@v1.61.0
 
@@ -30,6 +30,12 @@ generate-check:
 
 migration-up:
 	go run ./cmd/academicctl migrate up
+
+dev-provider:
+	go run github.com/air-verse/air@v1.63.0 -c .air.provider.toml
+
+dev-analytics:
+	go run github.com/air-verse/air@v1.63.0 -c .air.analytics.toml
 
 production:
 	./scripts/deploy-provider.sh production

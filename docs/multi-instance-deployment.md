@@ -68,7 +68,7 @@ CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME=analytics-redis.internal
 `deploy/compose.yaml` 中的本地 Redis 已放入 `local` profile。开发环境使用：
 
 ```bash
-docker compose -f deploy/compose.yaml --profile local up -d
+docker compose -f deploy/compose.yaml -f deploy/compose.local.yaml --profile local up -d
 ```
 
 连接外部 Redis 时不要启用该 profile；在原有数据库、成绩源和密钥配置之外，
