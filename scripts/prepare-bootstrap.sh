@@ -140,7 +140,7 @@ analytics:
   timezone: Asia/Shanghai
   schedule_hour: 4
   minimum_sample_size: 5
-  query_timeout: 2m
+  query_timeout: 20m
   worker_concurrency: 2
   task_queue: academic_analytics
   task_timeout: 30m

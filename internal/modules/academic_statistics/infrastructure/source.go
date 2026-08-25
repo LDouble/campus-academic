@@ -27,7 +27,7 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
-const sourceAggregateQuery = `
+const sourceAggregateQueryTemplate = `
 WITH source_rows AS (
     SELECT
         TRIM(COALESCE(term_id, '')) AS term_id,
@@ -93,7 +93,10 @@ valid AS (
     FROM classified
     WHERE passed IS NOT NULL
 )
+SELECT /*+ MAX_EXECUTION_TIME(%d) */ *
+FROM (
 SELECT
+    /*+ NO_MERGE(valid) */
     'course' AS dimension_type,
     term_id,
     term_code,
@@ -122,6 +125,7 @@ GROUP BY term_id, term_code, course_code
 UNION ALL
 
 SELECT
+    /*+ NO_MERGE(valid) */
     'instructor' AS dimension_type,
     term_id,
     term_code,
@@ -154,6 +158,7 @@ WHERE teacher_name <> ''
   AND LOCATE('；', teacher_name) = 0
   AND LOCATE('/', teacher_name) = 0
 GROUP BY term_id, term_code, course_code, teacher_name
+) AS aggregate_rows
 `
 
 const sourceCutoffQuery = `
@@ -545,7 +550,8 @@ func (source *GradeAggregateSource) Aggregate(
 			"grade source must enforce UNIQUE(student_id, grade_id)",
 		)
 	}
-	rows, err := tx.QueryContext(ctx, sourceAggregateQuery)
+	query := fmt.Sprintf(sourceAggregateQueryTemplate, source.timeout.Milliseconds())
+	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return domain.Snapshot{}, fmt.Errorf("query source aggregate: %w", err)
 	}
