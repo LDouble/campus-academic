@@ -30,14 +30,15 @@ type ConfigResolver interface {
 
 // Provider implements both credential verification and academic queries.
 type Provider struct {
-	config    ConfigResolver
-	sessions  SessionStore
-	adapters  map[string]systemAdapter
-	newClient sessionClientFactory
-	transport *http.Transport
-	logger    *zap.Logger
-	observer  Observer
-	recovery  singleflight.Group
+	config      ConfigResolver
+	sessions    SessionStore
+	adapters    map[string]systemAdapter
+	newClient   sessionClientFactory
+	transport   *http.Transport
+	logger      *zap.Logger
+	observer    Observer
+	diagnostics ContractDiagnosticCapture
+	recovery    singleflight.Group
 }
 
 // ProviderOption customizes the OUC provider without changing its application
@@ -79,6 +80,14 @@ func WithHTTPProxy(proxyURL string) ProviderOption {
 func WithLogger(logger *zap.Logger) ProviderOption {
 	return func(provider *Provider) {
 		provider.logger = logger
+	}
+}
+
+// WithContractDiagnosticCapture stores raw upstream responses that fail page
+// parsing. The capture implementation must never expose bodies through logs.
+func WithContractDiagnosticCapture(capture ContractDiagnosticCapture) ProviderOption {
+	return func(provider *Provider) {
+		provider.diagnostics = capture
 	}
 }
 
@@ -451,6 +460,16 @@ func (p *Provider) ListCourseCatalogPage(
 		trace.step("response_classification", zap.String("outcome", "accepted"), zap.Int("attempt", attempt))
 		catalogPage, parseErr := parseCourseCatalogPage(educationLevel, periodID, page, operation, body)
 		if parseErr != nil {
+			p.captureContractDiagnostic(ContractDiagnosticSample{
+				Body:           body,
+				Encoding:       operation.ResponseEncoding,
+				Operation:      "course_catalog",
+				EducationLevel: educationLevel,
+				Host:           finalURL.Hostname(),
+				Path:           finalURL.Path,
+				Stage:          "response_parse",
+				Failure:        "contract_error",
+			})
 			p.observer.ObserveAcademicUpstreamAttempt(
 				"course_catalog",
 				"invalid_response",
@@ -520,6 +539,8 @@ type queryResponse struct {
 	adapter       systemAdapter
 	trace         *processTrace
 	onParseResult func(error)
+	diagnostic    ContractDiagnosticSample
+	capture       ContractDiagnosticCapture
 }
 
 func traceQueryParse(response queryResponse, err error, itemCount int) {
@@ -527,6 +548,7 @@ func traceQueryParse(response queryResponse, err error, itemCount int) {
 		response.onParseResult(err)
 	}
 	if err != nil {
+		response.captureContractDiagnostic()
 		response.trace.failure("response_parse", "failure", "contract_error")
 		response.trace.failure("query.finish", "contract_changed", "contract_error")
 		return
@@ -537,6 +559,18 @@ func traceQueryParse(response queryResponse, err error, itemCount int) {
 		zap.Int("item_count", itemCount),
 	)
 	response.trace.step("query.finish", zap.String("outcome", "success"))
+}
+
+func (r queryResponse) captureContractDiagnostic() {
+	if r.capture != nil {
+		r.capture.Capture(r.diagnostic)
+	}
+}
+
+func (p *Provider) captureContractDiagnostic(sample ContractDiagnosticSample) {
+	if p != nil && p.diagnostics != nil {
+		p.diagnostics.Capture(sample)
+	}
 }
 
 func (p *Provider) query(
@@ -707,6 +741,16 @@ func (p *Provider) query(
 		}
 		if finalURL.Scheme != "https" ||
 			finalURL.Hostname() != expectedURL.Hostname() {
+			p.captureContractDiagnostic(ContractDiagnosticSample{
+				Body:           body,
+				Encoding:       operation.ResponseEncoding,
+				Operation:      operationName,
+				EducationLevel: student.EducationLevel,
+				Host:           finalURL.Hostname(),
+				Path:           finalURL.Path,
+				Stage:          "response_classification",
+				Failure:        "contract_error",
+			})
 			p.observer.ObserveAcademicUpstreamAttempt(
 				operationName,
 				"invalid_response",
@@ -719,6 +763,16 @@ func (p *Provider) query(
 			return queryResponse{}, application.ErrProviderUnavailable
 		}
 		if operation.ResponseEncoding == "json" && !json.Valid(body) {
+			p.captureContractDiagnostic(ContractDiagnosticSample{
+				Body:           body,
+				Encoding:       operation.ResponseEncoding,
+				Operation:      operationName,
+				EducationLevel: student.EducationLevel,
+				Host:           finalURL.Hostname(),
+				Path:           finalURL.Path,
+				Stage:          "response_parse",
+				Failure:        "invalid_json",
+			})
 			p.observer.ObserveAcademicUpstreamAttempt(
 				operationName,
 				"invalid_response",
@@ -758,6 +812,17 @@ func (p *Provider) query(
 					student.EducationLevel,
 				)
 			},
+			diagnostic: ContractDiagnosticSample{
+				Body:           body,
+				Encoding:       operation.ResponseEncoding,
+				Operation:      operationName,
+				EducationLevel: student.EducationLevel,
+				Host:           finalURL.Hostname(),
+				Path:           finalURL.Path,
+				Stage:          "response_parse",
+				Failure:        "contract_error",
+			},
+			capture: p.diagnostics,
 		}, nil
 	}
 	return queryResponse{}, application.ErrProviderUnavailable

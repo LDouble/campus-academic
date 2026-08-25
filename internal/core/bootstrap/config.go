@@ -46,20 +46,21 @@ const (
 
 // ProviderConfig configures the gRPC listener and upstream query protection.
 type ProviderConfig struct {
-	ListenAddress  string        `yaml:"listen_address"`
-	Target         string        `yaml:"target"`
-	HTTPProxyURL   string        `yaml:"http_proxy_url"`
-	MaxConcurrent  int           `yaml:"max_concurrent"`
-	QueueWait      time.Duration `yaml:"queue_wait"`
-	RetryAfter     time.Duration `yaml:"retry_after"`
-	Insecure       bool          `yaml:"insecure"`
-	TLSFilesRoot   string        `yaml:"tls_files_root"`
-	CAFile         string        `yaml:"ca_file"`
-	ClientCertFile string        `yaml:"client_cert_file"`
-	ClientKeyFile  string        `yaml:"client_key_file"`
-	ServerCertFile string        `yaml:"server_cert_file"`
-	ServerKeyFile  string        `yaml:"server_key_file"`
-	ServerName     string        `yaml:"server_name"`
+	ListenAddress     string        `yaml:"listen_address"`
+	Target            string        `yaml:"target"`
+	HTTPProxyURL      string        `yaml:"http_proxy_url"`
+	DiagnosticHTMLDir string        `yaml:"diagnostic_html_dir"`
+	MaxConcurrent     int           `yaml:"max_concurrent"`
+	QueueWait         time.Duration `yaml:"queue_wait"`
+	RetryAfter        time.Duration `yaml:"retry_after"`
+	Insecure          bool          `yaml:"insecure"`
+	TLSFilesRoot      string        `yaml:"tls_files_root"`
+	CAFile            string        `yaml:"ca_file"`
+	ClientCertFile    string        `yaml:"client_cert_file"`
+	ClientKeyFile     string        `yaml:"client_key_file"`
+	ServerCertFile    string        `yaml:"server_cert_file"`
+	ServerKeyFile     string        `yaml:"server_key_file"`
+	ServerName        string        `yaml:"server_name"`
 }
 
 // AnalyticsConfig owns the Analytics write database, grade source database,
@@ -245,6 +246,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.Provider.RetryAfter <= 0 {
 		cfg.Provider.RetryAfter = 2 * time.Second
 	}
+	if cfg.Provider.DiagnosticHTMLDir == "" {
+		cfg.Provider.DiagnosticHTMLDir = "/var/lib/campus-academic/diagnostics"
+	}
 	if cfg.AcademicQuery.CacheMode == "" {
 		cfg.AcademicQuery.CacheMode = "normal"
 	}
@@ -306,6 +310,7 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Release, "CAMPUS_RELEASE")
 	setString(&cfg.Provider.ListenAddress, "CAMPUS_ACADEMIC_PROVIDER_LISTEN")
 	setString(&cfg.Provider.Target, "CAMPUS_ACADEMIC_PROVIDER_TARGET")
+	setString(&cfg.Provider.DiagnosticHTMLDir, "CAMPUS_ACADEMIC_PROVIDER_DIAGNOSTIC_HTML_DIR")
 	setString(&cfg.ProviderConfigFile, "CAMPUS_ACADEMIC_PROVIDER_CONFIG_FILE")
 	setString(&cfg.Redis.Address, "CAMPUS_ACADEMIC_PROVIDER_REDIS_ADDRESS")
 	setString(&cfg.Redis.Username, "CAMPUS_ACADEMIC_PROVIDER_REDIS_USERNAME")
@@ -463,6 +468,9 @@ func validate(cfg Config, service component) error {
 	}
 	if service != componentAnalytics && (cfg.Provider.MaxConcurrent < 1 || cfg.Provider.QueueWait <= 0 || cfg.Provider.RetryAfter <= 0) {
 		return errors.New("provider concurrency and queue settings must be positive")
+	}
+	if service != componentAnalytics && !filepath.IsAbs(cfg.Provider.DiagnosticHTMLDir) {
+		return errors.New("provider diagnostic HTML directory must be absolute")
 	}
 	if cfg.UsesProductionSafeguards() && ((service != componentAnalytics && cfg.Provider.Insecure) ||
 		(service != componentProvider && cfg.Analytics.Insecure)) {

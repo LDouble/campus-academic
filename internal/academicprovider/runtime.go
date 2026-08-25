@@ -30,15 +30,16 @@ import (
 
 // Runtime owns the dependencies used only by the private academic provider.
 type Runtime struct {
-	Redis   *redis.Client
-	Logger  *zap.Logger
-	Config  *academicconfig.Resolver
-	Limits  *ratelimitconfig.Resolver
-	Server  *grpc.Server
-	Health  *health.Server
-	Metrics *observability.Registry
-	OUC     *ouc.Provider
-	closed  bool
+	Redis       *redis.Client
+	Logger      *zap.Logger
+	Config      *academicconfig.Resolver
+	Limits      *ratelimitconfig.Resolver
+	Server      *grpc.Server
+	Health      *health.Server
+	Metrics     *observability.Registry
+	OUC         *ouc.Provider
+	Diagnostics interface{ Close() }
+	closed      bool
 }
 
 // Build initializes the provider router, encrypted session cache and gRPC server.
@@ -90,6 +91,11 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 	resolver.Start(ctx)
 	metricsRegistry := observability.New("academic-provider", cfg.Release)
 	runtime.Metrics = metricsRegistry
+	diagnostics, err := ouc.NewFileContractDiagnosticCapture(cfg.Provider.DiagnosticHTMLDir, log)
+	if err != nil {
+		return nil, fmt.Errorf("init OUC contract diagnostics: %w", err)
+	}
+	runtime.Diagnostics = diagnostics
 	sessions, err := ouc.NewEncryptedRedisSessionStore(
 		rdb,
 		cipher,
@@ -104,6 +110,7 @@ func Build(ctx context.Context, cfg bootstrap.Config) (*Runtime, error) {
 		ouc.WithSessionStore(sessions),
 		ouc.WithLogger(log),
 		ouc.WithObserver(metricsRegistry),
+		ouc.WithContractDiagnosticCapture(diagnostics),
 	)
 	runtime.OUC = oucProvider
 	coordinatedOUC, err := querycoord.New(
@@ -210,6 +217,9 @@ func (r *Runtime) Close() error {
 		if err := r.OUC.Close(); err != nil && first == nil {
 			first = err
 		}
+	}
+	if r.Diagnostics != nil {
+		r.Diagnostics.Close()
 	}
 	if r.Redis != nil {
 		if err := r.Redis.Close(); err != nil && first == nil {

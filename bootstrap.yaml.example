@@ -6,6 +6,8 @@ provider_config_file: provider-config.yaml
 provider:
   listen_address: ":9090"
   target: 127.0.0.1:9090
+  # 解析失败的完整上游响应会保存到受限目录，两天后自动清理；本地路径可由环境变量覆盖，禁止通过 HTTP 暴露。
+  diagnostic_html_dir: /tmp/campus-academic/diagnostics
   insecure: true
   max_concurrent: 32
   queue_wait: 250ms
