@@ -288,7 +288,7 @@ func applyDefaults(cfg *Config) {
 		cfg.Analytics.MinimumSampleSize = 5
 	}
 	if cfg.Analytics.QueryTimeout <= 0 {
-		cfg.Analytics.QueryTimeout = 2 * time.Minute
+		cfg.Analytics.QueryTimeout = 20 * time.Minute
 	}
 	if cfg.Analytics.WorkerConcurrency <= 0 {
 		cfg.Analytics.WorkerConcurrency = 2
@@ -343,6 +343,9 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Analytics.Redis.ClientKeyFile, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE")
 	setString(&cfg.Analytics.Redis.ServerName, "CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME")
 	if err := setDuration(&cfg.Analytics.RetryDelay, "CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY"); err != nil {
+		return err
+	}
+	if err := setDuration(&cfg.Analytics.QueryTimeout, "CAMPUS_ACADEMIC_ANALYTICS_QUERY_TIMEOUT"); err != nil {
 		return err
 	}
 	setString(&cfg.Observability.MetricsAddress, "CAMPUS_ACADEMIC_METRICS_ADDRESS")
@@ -483,6 +486,12 @@ func validate(cfg Config, service component) error {
 	}
 	if cfg.Analytics.RetryDelay <= 0 {
 		return errors.New("analytics retry delay must be positive")
+	}
+	if cfg.Analytics.QueryTimeout <= 0 || cfg.Analytics.TaskTimeout <= 0 {
+		return errors.New("analytics query and task timeouts must be positive")
+	}
+	if cfg.Analytics.QueryTimeout >= cfg.Analytics.TaskTimeout {
+		return errors.New("analytics query timeout must be shorter than task timeout")
 	}
 	return nil
 }

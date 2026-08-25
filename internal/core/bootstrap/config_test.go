@@ -78,6 +78,9 @@ analytics:
 	if cfg.Analytics.RetryDelay != 15*time.Minute {
 		t.Fatalf("analytics retry delay = %s, want 15m", cfg.Analytics.RetryDelay)
 	}
+	if cfg.Analytics.QueryTimeout != 20*time.Minute {
+		t.Fatalf("analytics query timeout = %s, want 20m", cfg.Analytics.QueryTimeout)
+	}
 }
 
 func TestAnalyticsRetryDelayEnvironmentOverride(t *testing.T) {
@@ -103,6 +106,48 @@ func TestAnalyticsRetryDelayRejectsInvalidEnvironment(t *testing.T) {
 
 	if _, err := LoadAnalytics(path); err == nil {
 		t.Fatal("LoadAnalytics() accepted invalid analytics retry delay")
+	}
+}
+
+func TestAnalyticsQueryTimeoutEnvironmentOverride(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_QUERY_TIMEOUT", "12m")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	cfg, err := LoadAnalytics(path)
+	if err != nil {
+		t.Fatalf("LoadAnalytics() error = %v", err)
+	}
+	if cfg.Analytics.QueryTimeout != 12*time.Minute {
+		t.Fatalf("analytics query timeout = %s, want 12m", cfg.Analytics.QueryTimeout)
+	}
+}
+
+func TestAnalyticsQueryTimeoutRejectsInvalidEnvironment(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_QUERY_TIMEOUT", "unbounded")
+	path := writeBootstrapForTest(t, "environment: development\n")
+
+	if _, err := LoadAnalytics(path); err == nil {
+		t.Fatal("LoadAnalytics() accepted invalid analytics query timeout")
+	}
+}
+
+func TestAnalyticsQueryTimeoutMustBeShorterThanTaskTimeout(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	path := writeBootstrapForTest(t, `
+environment: development
+analytics:
+  query_timeout: 30m
+  task_timeout: 30m
+`)
+
+	if _, err := LoadAnalytics(path); err == nil {
+		t.Fatal("LoadAnalytics() accepted query timeout equal to task timeout")
 	}
 }
 
@@ -219,6 +264,7 @@ func setEmptyAcademicEnvironment(t *testing.T) {
 		"CAMPUS_ACADEMIC_ANALYTICS_REDIS_CLIENT_KEY_FILE",
 		"CAMPUS_ACADEMIC_ANALYTICS_REDIS_SERVER_NAME",
 		"CAMPUS_ACADEMIC_ANALYTICS_RETRY_DELAY",
+		"CAMPUS_ACADEMIC_ANALYTICS_QUERY_TIMEOUT",
 	} {
 		t.Setenv(name, "")
 	}
