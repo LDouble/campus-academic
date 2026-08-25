@@ -3,6 +3,8 @@ services:
     image: redis:7-alpine
     profiles: ["local"]
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_PROVIDER_REDIS_PORT:-6381}:6379"
     volumes:
       - provider-redis:/data
     healthcheck:
@@ -15,6 +17,8 @@ services:
     image: redis:7-alpine
     profiles: ["local"]
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_ANALYTICS_REDIS_PORT:-6382}:6379"
     volumes:
       - analytics-redis:/data
     healthcheck:
@@ -30,6 +34,8 @@ services:
       MYSQL_USER: campus_academic
       MYSQL_PASSWORD: ${CAMPUS_ACADEMIC_DB_PASSWORD:?set CAMPUS_ACADEMIC_DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${CAMPUS_ACADEMIC_DB_ROOT_PASSWORD:?set CAMPUS_ACADEMIC_DB_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:${CAMPUS_ACADEMIC_ANALYTICS_MYSQL_PORT:-3307}:3306"
     volumes:
       - analytics-mysql:/var/lib/mysql
     healthcheck:

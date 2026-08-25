@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = ".local/air/provider"
+
+[build]
+cmd = "go build -o ./.local/air/provider/academic-provider ./cmd/academic-provider"
+bin = "./.local/air/provider/academic-provider"
+include_ext = ["go", "yaml"]
+exclude_dir = [".git", ".local", "deploy", "tmp", "vendor"]
+
+[log]
+time = true
