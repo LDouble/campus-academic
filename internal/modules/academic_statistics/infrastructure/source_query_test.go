@@ -20,3 +20,27 @@ func TestSourceAggregateQueryMaterializesNormalizedRows(t *testing.T) {
 		t.Fatal("source aggregate query does not enforce a MySQL server-side deadline")
 	}
 }
+
+func TestSourceAggregateQueryPrefersRecognizedGradeText(t *testing.T) {
+	query := strings.ToUpper(sourceAggregateQueryTemplate)
+
+	if strings.Contains(query, "WHEN SCORE BETWEEN 0 AND 100 THEN SCORE") {
+		t.Fatal("source aggregate query trusts the stored score before grade text")
+	}
+	if !strings.Contains(
+		query,
+		"WHEN SCORE_STR = '' AND SCORE BETWEEN 0 AND 100 THEN SCORE",
+	) {
+		t.Fatal("source aggregate query has no score fallback for rows without grade text")
+	}
+	for _, fragment := range []string{
+		"'免修'",
+		"'已批准免修'",
+		"'优秀', '优'",
+		"'不及格', '不合格', '未通过'",
+	} {
+		if !strings.Contains(query, fragment) {
+			t.Fatalf("source aggregate query does not classify %s", fragment)
+		}
+	}
+}

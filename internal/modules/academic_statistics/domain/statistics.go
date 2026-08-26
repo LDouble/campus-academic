@@ -21,8 +21,9 @@ const (
 	TriggerManual = "manual"
 
 	// RuleVersion identifies the normalization, term-identity, and pass/fail
-	// rules used by the current offline aggregation implementation.
-	RuleVersion = "v5"
+	// rules used by the current offline aggregation implementation. v6 gives
+	// level-grade and exemption classification its own publication boundary.
+	RuleVersion = "v6"
 
 	// EducationLevelUndergraduate identifies undergraduate academic periods.
 	EducationLevelUndergraduate = "undergraduate"
