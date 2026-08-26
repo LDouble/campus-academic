@@ -27,6 +27,9 @@ import (
 	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
+// sourceAggregateQueryTemplate keeps the raw grade text authoritative when it
+// is present. The source may store a lossy numeric projection for level grades,
+// so an unknown non-numeric grade must not silently become a numeric failure.
 const sourceAggregateQueryTemplate = `
 WITH source_rows AS (
     SELECT
@@ -36,7 +39,13 @@ WITH source_rows AS (
         COALESCE(NULLIF(TRIM(course_name), ''), TRIM(course_code)) AS course_name,
         REGEXP_REPLACE(TRIM(COALESCE(teacher_name, '')), '[[:space:]]+', '') AS teacher_name,
         TRIM(COALESCE(selection_id, '')) AS selection_id,
-        TRIM(COALESCE(score_str, '')) AS score_str,
+        TRIM(
+            CASE
+                WHEN LOCATE('|', COALESCE(score_str, '')) > 0
+                    THEN SUBSTRING_INDEX(COALESCE(score_str, ''), '|', -1)
+                ELSE COALESCE(score_str, '')
+            END
+        ) AS score_str,
         score
     FROM grade_details
     WHERE student_id IS NOT NULL
@@ -61,11 +70,10 @@ normalized AS (
         selection_id,
         score_str,
         CASE
-            WHEN score BETWEEN 0 AND 100 THEN score
-            WHEN score IS NULL
-             AND score_str REGEXP '^[0-9]+([.][0-9]+)?$'
+            WHEN score_str REGEXP '^[0-9]+([.][0-9]+)?$'
              AND CAST(score_str AS DECIMAL(5, 2)) BETWEEN 0 AND 100
                 THEN CAST(score_str AS DECIMAL(5, 2))
+            WHEN score_str = '' AND score BETWEEN 0 AND 100 THEN score
             ELSE NULL
         END AS numeric_score
     FROM source_rows
@@ -82,7 +90,10 @@ classified AS (
         numeric_score,
         CASE
             WHEN numeric_score IS NOT NULL THEN numeric_score >= 60
-            WHEN score_str IN ('优秀', '良好', '中等', '及格', '合格', '通过') THEN 1
+            WHEN score_str IN (
+                '优秀', '优', '良好', '良', '中等', '中',
+                '及格', '合格', '通过', '免修', '已批准免修'
+            ) THEN 1
             WHEN score_str IN ('不及格', '不合格', '未通过') THEN 0
             ELSE NULL
         END AS passed
@@ -114,10 +125,13 @@ SELECT
     SUM(numeric_score >= 70 AND numeric_score < 80) AS score_70_79_count,
     SUM(numeric_score >= 80 AND numeric_score < 90) AS score_80_89_count,
     SUM(numeric_score >= 90 AND numeric_score <= 100) AS score_90_100_count,
-    SUM(numeric_score IS NULL AND score_str = '优秀') AS level_excellent_count,
-    SUM(numeric_score IS NULL AND score_str = '良好') AS level_good_count,
-    SUM(numeric_score IS NULL AND score_str = '中等') AS level_medium_count,
-    SUM(numeric_score IS NULL AND score_str IN ('及格', '合格', '通过')) AS level_pass_count,
+    SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')) AS level_excellent_count,
+    SUM(numeric_score IS NULL AND score_str IN ('良好', '良')) AS level_good_count,
+    SUM(numeric_score IS NULL AND score_str IN ('中等', '中')) AS level_medium_count,
+    SUM(
+        numeric_score IS NULL
+        AND score_str IN ('及格', '合格', '通过', '免修', '已批准免修')
+    ) AS level_pass_count,
     SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')) AS level_fail_count
 FROM valid
 GROUP BY term_id, term_code, course_code
@@ -143,10 +157,13 @@ SELECT
     SUM(numeric_score >= 70 AND numeric_score < 80) AS score_70_79_count,
     SUM(numeric_score >= 80 AND numeric_score < 90) AS score_80_89_count,
     SUM(numeric_score >= 90 AND numeric_score <= 100) AS score_90_100_count,
-    SUM(numeric_score IS NULL AND score_str = '优秀') AS level_excellent_count,
-    SUM(numeric_score IS NULL AND score_str = '良好') AS level_good_count,
-    SUM(numeric_score IS NULL AND score_str = '中等') AS level_medium_count,
-    SUM(numeric_score IS NULL AND score_str IN ('及格', '合格', '通过')) AS level_pass_count,
+    SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')) AS level_excellent_count,
+    SUM(numeric_score IS NULL AND score_str IN ('良好', '良')) AS level_good_count,
+    SUM(numeric_score IS NULL AND score_str IN ('中等', '中')) AS level_medium_count,
+    SUM(
+        numeric_score IS NULL
+        AND score_str IN ('及格', '合格', '通过', '免修', '已批准免修')
+    ) AS level_pass_count,
     SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')) AS level_fail_count
 FROM valid
 WHERE teacher_name <> ''
