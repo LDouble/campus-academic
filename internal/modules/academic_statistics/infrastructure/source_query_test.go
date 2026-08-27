@@ -44,3 +44,18 @@ func TestSourceAggregateQueryPrefersRecognizedGradeText(t *testing.T) {
 		}
 	}
 }
+
+func TestSourceAggregateQueryNormalizesNullableCounts(t *testing.T) {
+	query := strings.ToUpper(sourceAggregateQueryTemplate)
+
+	for _, fragment := range []string{
+		"COALESCE(SUM(NUMERIC_SCORE >= 60 AND NUMERIC_SCORE < 70), 0) AS SCORE_60_69_COUNT",
+		"COALESCE(SUM(NUMERIC_SCORE >= 70 AND NUMERIC_SCORE < 80), 0) AS SCORE_70_79_COUNT",
+		"COALESCE(SUM(NUMERIC_SCORE >= 80 AND NUMERIC_SCORE < 90), 0) AS SCORE_80_89_COUNT",
+		"COALESCE(SUM(NUMERIC_SCORE >= 90 AND NUMERIC_SCORE <= 100), 0) AS SCORE_90_100_COUNT",
+	} {
+		if count := strings.Count(query, fragment); count != 2 {
+			t.Fatalf("source aggregate query contains %q %d times, want 2", fragment, count)
+		}
+	}
+}

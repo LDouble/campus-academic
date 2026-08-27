@@ -116,23 +116,23 @@ SELECT
     '' AS teacher_name,
     0 AS class_count,
     COUNT(*) AS valid_count,
-    SUM(passed = 1) AS pass_count,
-    SUM(passed = 0) AS fail_count,
-    SUM(numeric_score IS NOT NULL) AS numeric_score_count,
+    COALESCE(SUM(passed = 1), 0) AS pass_count,
+    COALESCE(SUM(passed = 0), 0) AS fail_count,
+    COALESCE(SUM(numeric_score IS NOT NULL), 0) AS numeric_score_count,
     CAST(COALESCE(SUM(ROUND(numeric_score * 100)), 0) AS SIGNED) AS numeric_score_sum_x100,
-    SUM(numeric_score IS NOT NULL AND numeric_score < 60) AS numeric_fail_count,
-    SUM(numeric_score >= 60 AND numeric_score < 70) AS score_60_69_count,
-    SUM(numeric_score >= 70 AND numeric_score < 80) AS score_70_79_count,
-    SUM(numeric_score >= 80 AND numeric_score < 90) AS score_80_89_count,
-    SUM(numeric_score >= 90 AND numeric_score <= 100) AS score_90_100_count,
-    SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')) AS level_excellent_count,
-    SUM(numeric_score IS NULL AND score_str IN ('良好', '良')) AS level_good_count,
-    SUM(numeric_score IS NULL AND score_str IN ('中等', '中')) AS level_medium_count,
-    SUM(
+    COALESCE(SUM(numeric_score IS NOT NULL AND numeric_score < 60), 0) AS numeric_fail_count,
+    COALESCE(SUM(numeric_score >= 60 AND numeric_score < 70), 0) AS score_60_69_count,
+    COALESCE(SUM(numeric_score >= 70 AND numeric_score < 80), 0) AS score_70_79_count,
+    COALESCE(SUM(numeric_score >= 80 AND numeric_score < 90), 0) AS score_80_89_count,
+    COALESCE(SUM(numeric_score >= 90 AND numeric_score <= 100), 0) AS score_90_100_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')), 0) AS level_excellent_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('良好', '良')), 0) AS level_good_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('中等', '中')), 0) AS level_medium_count,
+    COALESCE(SUM(
         numeric_score IS NULL
         AND score_str IN ('及格', '合格', '通过', '免修', '已批准免修')
-    ) AS level_pass_count,
-    SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')) AS level_fail_count
+    ), 0) AS level_pass_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')), 0) AS level_fail_count
 FROM valid
 GROUP BY term_id, term_code, course_code
 
@@ -148,23 +148,23 @@ SELECT
     teacher_name,
     COUNT(DISTINCT selection_id) AS class_count,
     COUNT(*) AS valid_count,
-    SUM(passed = 1) AS pass_count,
-    SUM(passed = 0) AS fail_count,
-    SUM(numeric_score IS NOT NULL) AS numeric_score_count,
+    COALESCE(SUM(passed = 1), 0) AS pass_count,
+    COALESCE(SUM(passed = 0), 0) AS fail_count,
+    COALESCE(SUM(numeric_score IS NOT NULL), 0) AS numeric_score_count,
     CAST(COALESCE(SUM(ROUND(numeric_score * 100)), 0) AS SIGNED) AS numeric_score_sum_x100,
-    SUM(numeric_score IS NOT NULL AND numeric_score < 60) AS numeric_fail_count,
-    SUM(numeric_score >= 60 AND numeric_score < 70) AS score_60_69_count,
-    SUM(numeric_score >= 70 AND numeric_score < 80) AS score_70_79_count,
-    SUM(numeric_score >= 80 AND numeric_score < 90) AS score_80_89_count,
-    SUM(numeric_score >= 90 AND numeric_score <= 100) AS score_90_100_count,
-    SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')) AS level_excellent_count,
-    SUM(numeric_score IS NULL AND score_str IN ('良好', '良')) AS level_good_count,
-    SUM(numeric_score IS NULL AND score_str IN ('中等', '中')) AS level_medium_count,
-    SUM(
+    COALESCE(SUM(numeric_score IS NOT NULL AND numeric_score < 60), 0) AS numeric_fail_count,
+    COALESCE(SUM(numeric_score >= 60 AND numeric_score < 70), 0) AS score_60_69_count,
+    COALESCE(SUM(numeric_score >= 70 AND numeric_score < 80), 0) AS score_70_79_count,
+    COALESCE(SUM(numeric_score >= 80 AND numeric_score < 90), 0) AS score_80_89_count,
+    COALESCE(SUM(numeric_score >= 90 AND numeric_score <= 100), 0) AS score_90_100_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('优秀', '优')), 0) AS level_excellent_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('良好', '良')), 0) AS level_good_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('中等', '中')), 0) AS level_medium_count,
+    COALESCE(SUM(
         numeric_score IS NULL
         AND score_str IN ('及格', '合格', '通过', '免修', '已批准免修')
-    ) AS level_pass_count,
-    SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')) AS level_fail_count
+    ), 0) AS level_pass_count,
+    COALESCE(SUM(numeric_score IS NULL AND score_str IN ('不及格', '不合格', '未通过')), 0) AS level_fail_count
 FROM valid
 WHERE teacher_name <> ''
   AND selection_id <> ''
