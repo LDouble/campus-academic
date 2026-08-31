@@ -8,6 +8,7 @@ jq -e '
   .version == 1 and
   .portal_service_url == "https://my.ouc.edu.cn/manage/common/cas_login/2?redirect=https%3A%2F%2Fmy.ouc.edu.cn%2Ffrontend%2Fuser%2Finfo" and
   .undergraduate.course_catalog.path == "/jsxsd/xkgl/loadXkkbList" and
+  .graduate.courses.path == "/py/page/student/xkgrcx.htm" and
   .graduate.course_catalog.path == "/py/page/student/lnsjCxdc.htm"
 ' "$config" >/dev/null
 
