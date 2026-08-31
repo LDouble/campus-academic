@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/LDouble/campus-academic/internal/modules/academic/application"
 	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
@@ -26,7 +27,7 @@ var (
 		`^(?:课程名称|课程编号|课程号|任课教师|教师|上课地点|地点|教室|校区|周次)[：:]\s*(.+)$`,
 	)
 	graduateWeekExpressionPattern = regexp.MustCompile(
-		`(?:[\(（\[【][ \t]*|第[ \t]*)?([0-9０-９][0-9０-９ \t,，、;；|｜+＋\-—~～至单双单周]*)(?:[\)）\]】][ \t]*)?周`,
+		`(?:[\(（\[【][ \t]*|第[ \t]*)?([0-9０-９][0-9０-９ \t,，、;；|｜+＋/／\-—~～至单双单周]*)(?:[\)）\]】][ \t]*)?周`,
 	)
 	graduateSectionPattern = regexp.MustCompile(
 		`第?\s*(\d{1,2})(?:\s*[-—~～至]\s*(\d{1,2}))?\s*节`,
@@ -252,9 +253,9 @@ func parseGraduateCourses(
 	if encoding != "html" {
 		return parseCourses(body, encoding, periodID)
 	}
-	// 研究生课表查询使用选课历史页（xkgrcx.htm）。该页面按课程行给出
-	// “时间与地点”明细，和 grkcb.htm 的网格结构不同；优先按选课历史
-	// 解析，保留网格解析作为兼容旧配置/历史响应的降级路径。
+	// 研究生课程响应同时兼容 grkcb.htm 的网格结构和 xkgrcx.htm 的
+	// 选课历史结构。两种页面都按表头识别，便于主查询和空结果回退共用
+	// 同一套解析规则。
 	selectionTable, found, err := findGraduateHTMLTable(
 		body,
 		"开课学年",
@@ -971,6 +972,7 @@ func graduateLabeledValue(lines []string, labels ...string) string {
 }
 
 func graduateCourseMetadataLine(value string) bool {
+	value = normalizeGraduateWeekText(value)
 	for _, prefix := range []string{
 		"课程编号",
 		"课程号",
@@ -993,6 +995,7 @@ func graduateCourseMetadataLine(value string) bool {
 }
 
 func parseGraduateWeeks(value string) []int {
+	value = normalizeGraduateWeekText(value)
 	seen := make(map[int]struct{})
 	for _, match := range graduateWeekExpressionPattern.FindAllStringSubmatch(value, -1) {
 		if len(match) == 2 {
@@ -1003,6 +1006,10 @@ func parseGraduateWeeks(value string) []int {
 	// Keep the same 23-week boundary as the graduate academic calendar.
 	if len(seen) == 0 {
 		switch {
+		case strings.Contains(value, "全周") || strings.Contains(value, "全"):
+			for week := 1; week <= graduateWeekCount; week++ {
+				seen[week] = struct{}{}
+			}
 		case strings.Contains(value, "单周"):
 			for week := 1; week <= graduateWeekCount; week += 2 {
 				seen[week] = struct{}{}
@@ -1019,6 +1026,15 @@ func parseGraduateWeeks(value string) []int {
 	}
 	sort.Ints(weeks)
 	return weeks
+}
+
+func normalizeGraduateWeekText(value string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) && r != '\n' && r != '\r' && r != '\t' {
+			return ' '
+		}
+		return r
+	}, value)
 }
 
 func addGraduateWeekExpression(seen map[int]struct{}, expression string) {
@@ -1059,7 +1075,7 @@ func addGraduateWeekExpression(seen map[int]struct{}, expression string) {
 	}
 	for _, token := range strings.FieldsFunc(expression, func(r rune) bool {
 		switch r {
-		case ',', '，', '、', ';', '；', '|', '｜', '+', '＋', '/':
+		case ',', '，', '、', ';', '；', '|', '｜', '+', '＋', '/', '／':
 			return true
 		default:
 			return false

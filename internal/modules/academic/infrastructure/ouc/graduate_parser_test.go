@@ -531,6 +531,7 @@ func TestParseGraduateWeeksMatchesSelectionHistoryFragments(t *testing.T) {
 		{name: "single week", text: "( 13 )周", want: []int{13}},
 		{name: "range", text: "( 5-6 )周", want: []int{5, 6}},
 		{name: "mixed range", text: "( 4,9-11,14 )周", want: []int{4, 9, 10, 11, 14}},
+		{name: "mixed range with nonbreaking spaces", text: "(\u00a04,9-11,14\u00a0)周", want: []int{4, 9, 10, 11, 14}},
 		{name: "unbracketed range", text: "1-17周 星期三", want: integerRange(1, 17)},
 		{name: "odd weeks", text: "单周", want: []int{1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23}},
 		{name: "even weeks", text: "双周", want: []int{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22}},

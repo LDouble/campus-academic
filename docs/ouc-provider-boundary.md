@@ -6,6 +6,7 @@ OUC 登录、CAS 跳转、门户身份换票、本科与研究生教务路由、
 
 - `deploy/provider-ouc.json` 是 OUC 路由配置的唯一受版本控制来源。
 - `scripts/render-provider-config.sh` 根据环境和 Provider ID 生成宿主机只读配置。
+- 研究生课表优先请求 `grkcb.htm` 网格接口；当该接口返回合法空课表时，才按同一学期参数回退到 `xkgrcx.htm` 选课历史接口。
 - 上游代理、Provider Redis、会话密钥、限流和查询缓存只在本仓库部署环境维护。
 - Production 禁止 Mock；Review 只有显式选择时才允许 Mock。
 

@@ -56,13 +56,16 @@ type OperationEndpoint struct {
 // EndpointSet describes one education-level system without coupling the
 // application service to that system's route layout.
 type EndpointSet struct {
-	ServiceURL    string            `json:"service_url"`
-	Periods       OperationEndpoint `json:"periods"`
-	Courses       OperationEndpoint `json:"courses"`
-	Grades        OperationEndpoint `json:"grades"`
-	Exams         OperationEndpoint `json:"exams"`
-	Selections    OperationEndpoint `json:"selections"`
-	CourseCatalog OperationEndpoint `json:"course_catalog"`
+	ServiceURL string            `json:"service_url"`
+	Periods    OperationEndpoint `json:"periods"`
+	Courses    OperationEndpoint `json:"courses"`
+	// CoursesFallback is an optional secondary schedule source used when the
+	// primary course operation returns a valid but empty schedule.
+	CoursesFallback OperationEndpoint `json:"courses_fallback,omitempty"`
+	Grades          OperationEndpoint `json:"grades"`
+	Exams           OperationEndpoint `json:"exams"`
+	Selections      OperationEndpoint `json:"selections"`
+	CourseCatalog   OperationEndpoint `json:"course_catalog"`
 }
 
 // OUCConfig contains the hot-reloadable OUC integration settings.
@@ -388,12 +391,13 @@ func validateEndpoint(endpoint EndpointSet, expectedHost string) error {
 		endpoint       OperationEndpoint
 		requiresPeriod bool
 	}{
-		"periods":        {endpoint: endpoint.Periods},
-		"courses":        {endpoint: endpoint.Courses, requiresPeriod: true},
-		"grades":         {endpoint: endpoint.Grades},
-		"exams":          {endpoint: endpoint.Exams, requiresPeriod: true},
-		"selections":     {endpoint: endpoint.Selections},
-		"course_catalog": {endpoint: endpoint.CourseCatalog, requiresPeriod: true},
+		"periods":          {endpoint: endpoint.Periods},
+		"courses":          {endpoint: endpoint.Courses, requiresPeriod: true},
+		"courses_fallback": {endpoint: endpoint.CoursesFallback, requiresPeriod: true},
+		"grades":           {endpoint: endpoint.Grades},
+		"exams":            {endpoint: endpoint.Exams, requiresPeriod: true},
+		"selections":       {endpoint: endpoint.Selections},
+		"course_catalog":   {endpoint: endpoint.CourseCatalog, requiresPeriod: true},
 	} {
 		if strings.TrimSpace(operation.endpoint.Path) == "" {
 			continue
