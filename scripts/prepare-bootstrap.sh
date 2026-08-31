@@ -91,10 +91,10 @@ academic_query:
   circuit_failure_threshold: 3
   circuit_window: 30s
   circuit_open_duration: 15s
-  circuit_minimum_samples: 10
-  circuit_deadline_threshold: 3
-  circuit_deadline_ratio: 0.20
-  circuit_hard_protection_count: 10
+  circuit_minimum_samples: 20
+  circuit_deadline_threshold: 5
+  circuit_deadline_ratio: 0.30
+  circuit_hard_protection_count: 15
   circuit_hard_protection_window: 30s
   lease_ttl: 35s
   poll_interval: 50ms
