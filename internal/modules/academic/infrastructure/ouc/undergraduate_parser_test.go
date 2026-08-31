@@ -309,6 +309,130 @@ func TestMergeUndergraduateCoursesKeepsDistinctIdentities(t *testing.T) {
 	}
 }
 
+func TestMergeUndergraduateCoursesMergesAdjacentSectionsAfterWeekUnion(t *testing.T) {
+	t.Parallel()
+	base := domain.Course{
+		PeriodID: "2025-2026-3", CourseCode: "PHYS1001", Name: "大学物理",
+		Teacher: "王老师", Campus: "崂山校区", Location: "教学楼201",
+		Weekday: 3,
+	}
+	first := base
+	first.StartSection, first.EndSection = 5, 6
+	first.Weeks = []int{3, 1, 3}
+	first.ID = derivedUndergraduateCourseID(first)
+	second := first
+	second.Weeks = []int{2, 1}
+	third := base
+	third.StartSection, third.EndSection = 7, 7
+	third.Weeks = []int{1, 2, 3}
+	third.ID = derivedUndergraduateCourseID(third)
+
+	got := mergeUndergraduateCourses([]domain.Course{first, second, third})
+	if len(got) != 1 {
+		t.Fatalf("merged courses=%+v, want one row", got)
+	}
+	course := got[0]
+	if course.StartSection != 5 || course.EndSection != 7 ||
+		!equalInts(course.Weeks, []int{1, 2, 3}) {
+		t.Fatalf("course=%+v, want 5-7 with weeks [1 2 3]", course)
+	}
+	if wantID := derivedUndergraduateCourseID(course); course.ID != wantID {
+		t.Fatalf("course ID=%q want final-placement ID %q", course.ID, wantID)
+	}
+}
+
+func TestMergeUndergraduateCoursesKeepsAdjacentSectionsWithDifferentWeeksSeparate(t *testing.T) {
+	t.Parallel()
+	base := domain.Course{
+		PeriodID: "2025-2026-3", CourseCode: "CHEM1001", Name: "大学化学",
+		Teacher: "李老师", Campus: "崂山校区", Location: "实验楼101", Weekday: 4,
+	}
+	first := base
+	first.StartSection, first.EndSection, first.Weeks = 5, 6, []int{1, 2}
+	first.ID = derivedUndergraduateCourseID(first)
+	second := base
+	second.StartSection, second.EndSection, second.Weeks = 7, 7, []int{3, 4}
+	second.ID = derivedUndergraduateCourseID(second)
+
+	got := mergeUndergraduateCourses([]domain.Course{first, second})
+	if len(got) != 2 {
+		t.Fatalf("merged courses=%+v, want two rows", got)
+	}
+}
+
+func TestMergeUndergraduateCoursesKeepsNonAdjacentSectionsSeparate(t *testing.T) {
+	t.Parallel()
+	base := domain.Course{
+		PeriodID: "2025-2026-3", CourseCode: "ENGL1001", Name: "大学英语",
+		Teacher: "赵老师", Campus: "崂山校区", Location: "教学楼301", Weekday: 5,
+	}
+	first := base
+	first.StartSection, first.EndSection, first.Weeks = 1, 4, []int{1, 2, 3}
+	first.ID = derivedUndergraduateCourseID(first)
+	second := base
+	second.StartSection, second.EndSection, second.Weeks = 7, 8, []int{1, 2, 3}
+	second.ID = derivedUndergraduateCourseID(second)
+
+	got := mergeUndergraduateCourses([]domain.Course{first, second})
+	if len(got) != 2 {
+		t.Fatalf("merged courses=%+v, want two rows", got)
+	}
+	if got[0].StartSection != 1 || got[0].EndSection != 4 ||
+		got[1].StartSection != 7 || got[1].EndSection != 8 {
+		t.Fatalf("merged courses=%+v, want 1-4 and 7-8", got)
+	}
+}
+
+func TestMergeUndergraduateCoursesKeepsAdjacentSectionsWithDifferentIdentitiesSeparate(t *testing.T) {
+	t.Parallel()
+	base := domain.Course{
+		PeriodID: "2025-2026-3", CourseCode: "MATH1001", Name: "高等数学",
+		Teacher: "张老师", Campus: "崂山校区", Location: "教学楼101", Note: "线下",
+		Weekday: 2, Weeks: []int{1, 2, 3},
+	}
+	tests := []struct {
+		name   string
+		mutate func(*domain.Course)
+	}{
+		{name: "course code", mutate: func(course *domain.Course) { course.CourseCode = "MATH1002" }},
+		{name: "teacher", mutate: func(course *domain.Course) { course.Teacher = "李老师" }},
+		{name: "location", mutate: func(course *domain.Course) { course.Location = "教学楼202" }},
+		{name: "note", mutate: func(course *domain.Course) { course.Note = "线上" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			first := base
+			first.StartSection, first.EndSection = 5, 6
+			first.ID = derivedUndergraduateCourseID(first)
+			second := base
+			second.StartSection, second.EndSection = 7, 7
+			test.mutate(&second)
+			second.ID = derivedUndergraduateCourseID(second)
+
+			if got := mergeUndergraduateCourses([]domain.Course{first, second}); len(got) != 2 {
+				t.Fatalf("merged courses=%+v, want two rows", got)
+			}
+		})
+	}
+}
+
+func TestMergeUndergraduateCoursesKeepsExplicitIDsAsIdentityBoundaries(t *testing.T) {
+	t.Parallel()
+	base := domain.Course{
+		PeriodID: "2025-2026-3", CourseCode: "PHYS1001", Name: "大学物理",
+		Teacher: "王老师", Campus: "崂山校区", Location: "教学楼201",
+		Weekday: 3, Weeks: []int{1, 2, 3},
+	}
+	first := base
+	first.StartSection, first.EndSection, first.ID = 5, 6, "selection-1"
+	second := base
+	second.StartSection, second.EndSection, second.ID = 7, 7, "selection-2"
+
+	if got := mergeUndergraduateCourses([]domain.Course{first, second}); len(got) != 2 {
+		t.Fatalf("merged courses=%+v, want two rows", got)
+	}
+}
+
 func equalInts(left, right []int) bool {
 	if len(left) != len(right) {
 		return false
