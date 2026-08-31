@@ -521,6 +521,142 @@ func TestParseGraduateScheduleRecognizesEmptyGrid(t *testing.T) {
 	}
 }
 
+func TestParseGraduateWeeksMatchesSelectionHistoryFragments(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		text string
+		want []int
+	}{
+		{name: "single week", text: "( 13 )周", want: []int{13}},
+		{name: "range", text: "( 5-6 )周", want: []int{5, 6}},
+		{name: "mixed range", text: "( 4,9-11,14 )周", want: []int{4, 9, 10, 11, 14}},
+		{name: "unbracketed range", text: "1-17周 星期三", want: integerRange(1, 17)},
+		{name: "odd weeks", text: "单周", want: []int{1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23}},
+		{name: "even weeks", text: "双周", want: []int{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22}},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseGraduateWeeks(test.text); !sameIntegerValues(got, test.want) {
+				t.Fatalf("parseGraduateWeeks(%q)=%v want=%v", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestParseGraduateScheduleMergesSelectionHistoryWeekFragments(t *testing.T) {
+	t.Parallel()
+	body := []byte(`
+		<table class="table table-course">
+		  <tr>
+		    <th colspan="2">时间</th>
+		    <th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th>
+		    <th>星期五</th><th>星期六</th><th>星期日</th>
+		  </tr>
+		  <tr>
+		    <td rowspan="2">上午</td><td>第1节</td><td></td>
+		    <td>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 13 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 5-6 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 8 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 4,9-11,14 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 2-3,12 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		    </td>
+		    <td></td><td></td><td></td><td></td><td></td>
+		  </tr>
+		  <tr>
+		    <td>第2节</td><td></td>
+		    <td>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 13 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 5-6 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 8 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 4,9-11,14 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		      <a class="c666" href="/py/page/student/xkkcxx.htm?kcId=GR-001"><strong class="f14">研究方法</strong><br>&nbsp;||&nbsp;<span>( 2-3,12 )周</span><br>测试教师<br>教学楼101<br><br></a>
+		    </td>
+		    <td></td><td></td><td></td><td></td><td></td>
+		  </tr>
+		</table>`)
+	courses, err := parseGraduateCourses(body, "html", "2026:11")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(courses) != 1 {
+		t.Fatalf("courses=%+v", courses)
+	}
+	wantWeeks := []int{2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14}
+	course := courses[0]
+	if course.CourseCode != "GR-001" ||
+		course.Name != "研究方法" ||
+		course.Teacher != "测试教师" ||
+		course.Location != "教学楼101" ||
+		course.Weekday != 2 ||
+		course.StartSection != 1 ||
+		course.EndSection != 2 ||
+		!sameIntegerValues(course.Weeks, wantWeeks) {
+		t.Fatalf("course=%+v", course)
+	}
+}
+
+func TestParseGraduateCourseHistoryFiltersPeriodAndMergesEntries(t *testing.T) {
+	t.Parallel()
+	body := []byte(`
+		<table class="table table-bordered table-striped">
+		  <thead><tr>
+		    <th>开课学年</th><th>开课学期</th><th>班级编号</th><th>课程名称</th>
+		    <th>是否重修/重考</th><th>容量</th><th>学分</th><th>任课教师</th>
+		    <th>时间与地点</th><th>备注</th>
+		  </tr></thead>
+		  <tbody>
+		    <tr>
+		      <td>2026-2027</td><td>夏秋</td><td>040K0010001</td><td>研究方法</td>
+		      <td>否</td><td>100</td><td>3.0</td><td>测试教师</td>
+		      <td>(第13周)||星期一||第1-4节||(鱼山校区||鱼山楼群||教学楼101研)<br>(5-6周)||星期一||第1-4节||(鱼山校区||鱼山楼群||教学楼101研)</td><td>备注一</td>
+		    </tr>
+		    <tr>
+		      <td>2025-2026</td><td>夏秋</td><td>040K0099001</td><td>历史课程</td>
+		      <td>否</td><td>100</td><td>2.0</td><td>历史教师</td>
+		      <td>(1-2周)||星期二||第3-4节||(崂山校区||崂山楼群||教学楼202)</td><td></td>
+		    </tr>
+		    <tr>
+		      <td>2026-2027</td><td>春</td><td>040K0020001</td><td>春季课程</td>
+		      <td>否</td><td>100</td><td>2.0</td><td>春季教师</td>
+		      <td>(8-9周)||星期三||第5-6节||(鱼山校区||鱼山楼群||教学楼303)</td><td></td>
+		    </tr>
+		  </tbody>
+		</table>`)
+	courses, err := parseGraduateCourses(body, "html", "2026:11")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(courses) != 1 {
+		t.Fatalf("filtered courses=%+v", courses)
+	}
+	course := courses[0]
+	if course.ID != "2026:11:1:1:040K0010001" ||
+		course.CourseCode != "040K0010" ||
+		course.Name != "研究方法" ||
+		course.Teacher != "测试教师" ||
+		course.Campus != "鱼山校区" ||
+		course.Location != "教学楼101" ||
+		course.Note != "备注一" ||
+		course.Weekday != 1 ||
+		course.StartSection != 1 ||
+		course.EndSection != 4 ||
+		!sameIntegerValues(course.Weeks, []int{5, 6, 13}) {
+		t.Fatalf("course=%+v", course)
+	}
+
+	springCourses, err := parseGraduateCourses(body, "html", "2026:12")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(springCourses) != 1 || springCourses[0].Name != "春季课程" {
+		t.Fatalf("spring courses=%+v", springCourses)
+	}
+}
+
 func TestParseGraduateExams(t *testing.T) {
 	t.Parallel()
 	body := []byte(`

@@ -23,13 +23,10 @@ const (
 var (
 	graduateAcademicYearPattern = regexp.MustCompile(`^(\d{4})-(\d{4})$`)
 	graduateLabeledValuePattern = regexp.MustCompile(
-		`^(?:课程名称|课程编号|课程号|任课教师|教师|上课地点|地点|教室|周次)[：:]\s*(.+)$`,
+		`^(?:课程名称|课程编号|课程号|任课教师|教师|上课地点|地点|教室|校区|周次)[：:]\s*(.+)$`,
 	)
-	graduateWeekRangePattern = regexp.MustCompile(
-		`[\(（]?\s*(\d{1,2})\s*[-—~～至]\s*(\d{1,2})\s*[\)）]?\s*周`,
-	)
-	graduateWeekNumberPattern = regexp.MustCompile(
-		`[\(（]?\s*(\d{1,2})\s*[\)）]?\s*周`,
+	graduateWeekExpressionPattern = regexp.MustCompile(
+		`(?:[\(（\[【][ \t]*|第[ \t]*)?([0-9０-９][0-9０-９ \t,，、;；|｜+＋\-—~～至单双单周]*)(?:[\)）\]】][ \t]*)?周`,
 	)
 	graduateSectionPattern = regexp.MustCompile(
 		`第?\s*(\d{1,2})(?:\s*[-—~～至]\s*(\d{1,2}))?\s*节`,
@@ -255,6 +252,26 @@ func parseGraduateCourses(
 	if encoding != "html" {
 		return parseCourses(body, encoding, periodID)
 	}
+	// 研究生课表查询使用选课历史页（xkgrcx.htm）。该页面按课程行给出
+	// “时间与地点”明细，和 grkcb.htm 的网格结构不同；优先按选课历史
+	// 解析，保留网格解析作为兼容旧配置/历史响应的降级路径。
+	selectionTable, found, err := findGraduateHTMLTable(
+		body,
+		"开课学年",
+		"开课学期",
+		"班级编号",
+		"课程名称",
+		"学分",
+		"任课教师",
+		"时间与地点",
+		"备注",
+	)
+	if err != nil {
+		return nil, application.ErrProviderUnavailable
+	}
+	if found {
+		return parseGraduateCourseHistory(selectionTable, periodID), nil
+	}
 	table, found, err := findGraduateHTMLTable(
 		body,
 		"时间",
@@ -296,6 +313,146 @@ func parseGraduateCourses(
 		}
 	}
 	return result, nil
+}
+
+var graduateHistoryTimePattern = regexp.MustCompile(
+	`\(\s*([^()]*)\s*\)\s*\|\|\s*星期\s*([一二三四五六日七天])\s*\|\|\s*(?:第\s*)?(\d{1,2})(?:\s*[-—~～至]\s*(\d{1,2}))?\s*节\s*\|\|\s*\(\s*([^()]*)\s*\)`,
+)
+
+func parseGraduateCourseHistory(
+	table graduateHTMLTable,
+	periodID string,
+) []domain.Course {
+	rows := graduateTableRows(table)
+	result := make([]domain.Course, 0)
+	for rowIndex, row := range rows {
+		if !graduateHistoryPeriodMatches(row, periodID) {
+			continue
+		}
+		name := fieldString(row, "课程名称")
+		if name == "" {
+			continue
+		}
+		selectionID := fieldString(row, "班级编号", "课程编号", "课程号")
+		courseCode := graduateHistoryCourseCode(selectionID)
+		teacher := fieldString(row, "任课教师", "任课老师", "教师")
+		note := fieldString(row, "备注")
+		// The Python check_time implementation removes the graduate-room
+		// suffix before matching (for example, "3101研)" becomes "3101)").
+		// Keep the normalized location value compatible with that behavior.
+		timeAndLocation := strings.ReplaceAll(fieldString(row, "时间与地点"), "研)", ")")
+		entries := graduateHistoryTimePattern.FindAllStringSubmatch(timeAndLocation, -1)
+		for entryIndex, entry := range entries {
+			if len(entry) != 6 {
+				continue
+			}
+			weeks := parseGraduateWeeks(entry[1])
+			if len(weeks) == 0 {
+				weeks = integerRange(1, graduateWeekCount)
+			}
+			weekday := graduateWeekday(entry[2])
+			if weekday == 0 {
+				continue
+			}
+			startSection, startErr := strconv.Atoi(entry[3])
+			if startErr != nil || startSection < 1 {
+				continue
+			}
+			endSection := startSection
+			if entry[4] != "" {
+				parsedEnd, endErr := strconv.Atoi(entry[4])
+				if endErr != nil || parsedEnd < startSection {
+					continue
+				}
+				endSection = parsedEnd
+			}
+			campus, location := graduateHistoryLocation(entry[5])
+			result = mergeGraduateCourse(result, domain.Course{
+				ID:           graduateHistoryCourseID(periodID, selectionID, weekday, startSection, rowIndex, entryIndex),
+				PeriodID:     periodID,
+				CourseCode:   courseCode,
+				Name:         name,
+				Teacher:      teacher,
+				Campus:       campus,
+				Location:     location,
+				Note:         note,
+				Weekday:      weekday,
+				StartSection: startSection,
+				EndSection:   endSection,
+				Weeks:        weeks,
+			})
+		}
+	}
+	return result
+}
+
+func graduateHistoryPeriodMatches(row map[string]any, periodID string) bool {
+	if strings.TrimSpace(periodID) == "" {
+		return true
+	}
+	period, ok := graduatePeriod(
+		fieldString(row, "开课学年", "选课学年"),
+		fieldString(row, "开课学期", "学期"),
+		time.Now(),
+	)
+	return ok && period.ID == strings.TrimSpace(periodID)
+}
+
+func graduateHistoryCourseCode(selectionID string) string {
+	selectionID = strings.TrimSpace(selectionID)
+	if len([]rune(selectionID)) > 3 {
+		// xkgrcx.htm 的班级编号末三位是班级序号；Python 版本将其
+		// 去掉后作为 kch，这里沿用同一规则作为 CourseCode。
+		return string([]rune(selectionID)[:len([]rune(selectionID))-3])
+	}
+	return selectionID
+}
+
+func graduateHistoryCourseID(
+	periodID string,
+	selectionID string,
+	weekday int,
+	startSection int,
+	rowIndex int,
+	entryIndex int,
+) string {
+	identity := strings.TrimSpace(selectionID)
+	if identity == "" {
+		identity = fmt.Sprintf("row-%d-entry-%d", rowIndex, entryIndex)
+	}
+	return fmt.Sprintf("%s:%d:%d:%s", periodID, weekday, startSection, identity)
+}
+
+func graduateWeekday(value string) int {
+	return map[string]int{
+		"一": 1,
+		"二": 2,
+		"三": 3,
+		"四": 4,
+		"五": 5,
+		"六": 6,
+		"日": 7,
+		"七": 7,
+		"天": 7,
+	}[strings.TrimSpace(value)]
+}
+
+func graduateHistoryLocation(value string) (string, string) {
+	parts := strings.Split(value, "||")
+	cleaned := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			cleaned = append(cleaned, part)
+		}
+	}
+	if len(cleaned) == 0 {
+		return "", ""
+	}
+	if len(cleaned) == 1 {
+		return "", cleaned[0]
+	}
+	return cleaned[0], cleaned[len(cleaned)-1]
 }
 
 func parseGraduateExams(
@@ -570,6 +727,7 @@ func graduateCourseFromNode(
 	}
 	teacher := graduateLabeledValue(lines, "任课教师", "教师")
 	location := graduateLabeledValue(lines, "上课地点", "地点", "教室")
+	campus := graduateLabeledValue(lines, "校区")
 	if name == "" {
 		for _, line := range lines {
 			if graduateCourseMetadataLine(line) {
@@ -605,6 +763,7 @@ func graduateCourseFromNode(
 		CourseCode:   code,
 		Name:         name,
 		Teacher:      teacher,
+		Campus:       campus,
 		Location:     location,
 		Weekday:      weekday,
 		StartSection: startSection,
@@ -680,37 +839,108 @@ func mergeGraduateCourse(
 	courses []domain.Course,
 	course domain.Course,
 ) []domain.Course {
-	for index := len(courses) - 1; index >= 0; index-- {
+	course.Weeks = uniqueGraduateWeeks(course.Weeks)
+
+	// The graduate grid emits one anchor for every week fragment. First merge
+	// fragments that occupy the same day and sections, regardless of the
+	// fragment's week set. This mirrors get_week_course_by_select_history,
+	// which unions all week fragments under one placement key.
+	exactIndex := -1
+	for index := 0; index < len(courses); index++ {
 		current := &courses[index]
-		if !sameGraduateCoursePlacement(*current, course) ||
-			course.StartSection > current.EndSection+1 ||
-			course.EndSection < current.StartSection-1 {
+		if !sameGraduateCourseIdentity(*current, course) ||
+			current.StartSection != course.StartSection ||
+			current.EndSection != course.EndSection {
 			continue
 		}
-		if course.StartSection < current.StartSection {
-			current.StartSection = course.StartSection
+		if exactIndex == -1 {
+			exactIndex = index
+			current.Weeks = mergeGraduateWeeks(current.Weeks, course.Weeks)
+			continue
 		}
-		if course.EndSection > current.EndSection {
-			current.EndSection = course.EndSection
-		}
-		return courses
+		courses[exactIndex].Weeks = mergeGraduateWeeks(courses[exactIndex].Weeks, current.Weeks)
+		courses = append(courses[:index], courses[index+1:]...)
+		index--
 	}
-	return append(courses, course)
+	if exactIndex == -1 {
+		courses = append(courses, course)
+	}
+
+	// Once a placement has collected all of its week fragments, adjacent
+	// sections with the same identity and week set can be collapsed into one
+	// course. Repeat until no pair remains so a late week fragment can also
+	// unlock an adjacent merge.
+	for {
+		merged := false
+		for leftIndex := 0; leftIndex < len(courses) && !merged; leftIndex++ {
+			for rightIndex := leftIndex + 1; rightIndex < len(courses); rightIndex++ {
+				left := &courses[leftIndex]
+				right := courses[rightIndex]
+				if !sameGraduateCoursePlacement(*left, right) ||
+					!graduateCourseIntervalsTouch(*left, right) {
+					continue
+				}
+				if right.StartSection < left.StartSection {
+					left.StartSection = right.StartSection
+				}
+				if right.EndSection > left.EndSection {
+					left.EndSection = right.EndSection
+				}
+				courses = append(courses[:rightIndex], courses[rightIndex+1:]...)
+				merged = true
+				break
+			}
+		}
+		if !merged {
+			break
+		}
+	}
+	return courses
 }
 
-func sameGraduateCoursePlacement(left, right domain.Course) bool {
+func sameGraduateCourseIdentity(left, right domain.Course) bool {
 	if left.PeriodID != right.PeriodID ||
 		left.Weekday != right.Weekday ||
 		left.Name != right.Name ||
 		left.Teacher != right.Teacher ||
+		left.Campus != right.Campus ||
 		left.Location != right.Location ||
-		!sameIntegerValues(left.Weeks, right.Weeks) {
+		left.Note != right.Note {
 		return false
 	}
 	if left.CourseCode != "" || right.CourseCode != "" {
 		return left.CourseCode == right.CourseCode
 	}
 	return true
+}
+
+func sameGraduateCoursePlacement(left, right domain.Course) bool {
+	return sameGraduateCourseIdentity(left, right) &&
+		sameIntegerValues(uniqueGraduateWeeks(left.Weeks), uniqueGraduateWeeks(right.Weeks))
+}
+
+func graduateCourseIntervalsTouch(left, right domain.Course) bool {
+	return right.StartSection <= left.EndSection+1 &&
+		right.EndSection >= left.StartSection-1
+}
+
+func mergeGraduateWeeks(left, right []int) []int {
+	return uniqueGraduateWeeks(append(append([]int{}, left...), right...))
+}
+
+func uniqueGraduateWeeks(weeks []int) []int {
+	seen := make(map[int]struct{}, len(weeks))
+	for _, week := range weeks {
+		if week > 0 {
+			seen[week] = struct{}{}
+		}
+	}
+	result := make([]int, 0, len(seen))
+	for week := range seen {
+		result = append(result, week)
+	}
+	sort.Ints(result)
+	return result
 }
 
 func sameIntegerValues(left, right []int) bool {
@@ -749,33 +979,38 @@ func graduateCourseMetadataLine(value string) bool {
 		"上课地点",
 		"地点",
 		"教室",
+		"校区",
 		"周次",
 	} {
 		if strings.HasPrefix(value, prefix+"：") || strings.HasPrefix(value, prefix+":") {
 			return true
 		}
 	}
-	return graduateWeekRangePattern.MatchString(value) ||
-		graduateWeekNumberPattern.MatchString(value) ||
+	return graduateWeekExpressionPattern.MatchString(value) ||
+		strings.Contains(value, "单周") ||
+		strings.Contains(value, "双周") ||
 		graduateSectionPattern.MatchString(value)
 }
 
 func parseGraduateWeeks(value string) []int {
 	seen := make(map[int]struct{})
-	for _, match := range graduateWeekRangePattern.FindAllStringSubmatch(value, -1) {
-		start, startErr := strconv.Atoi(match[1])
-		end, endErr := strconv.Atoi(match[2])
-		if startErr != nil || endErr != nil || start < 1 || end < start || end > 30 {
-			continue
-		}
-		for week := start; week <= end; week++ {
-			seen[week] = struct{}{}
+	for _, match := range graduateWeekExpressionPattern.FindAllStringSubmatch(value, -1) {
+		if len(match) == 2 {
+			addGraduateWeekExpression(seen, match[1])
 		}
 	}
-	for _, match := range graduateWeekNumberPattern.FindAllStringSubmatch(value, -1) {
-		week, err := strconv.Atoi(match[1])
-		if err == nil && week >= 1 && week <= 30 {
-			seen[week] = struct{}{}
+	// Some pages render only “单周”/“双周” without a numeric expression.
+	// Keep the same 23-week boundary as the graduate academic calendar.
+	if len(seen) == 0 {
+		switch {
+		case strings.Contains(value, "单周"):
+			for week := 1; week <= graduateWeekCount; week += 2 {
+				seen[week] = struct{}{}
+			}
+		case strings.Contains(value, "双周"):
+			for week := 2; week <= graduateWeekCount; week += 2 {
+				seen[week] = struct{}{}
+			}
 		}
 	}
 	weeks := make([]int, 0, len(seen))
@@ -784,6 +1019,104 @@ func parseGraduateWeeks(value string) []int {
 	}
 	sort.Ints(weeks)
 	return weeks
+}
+
+func addGraduateWeekExpression(seen map[int]struct{}, expression string) {
+	expression = strings.Map(func(r rune) rune {
+		switch r {
+		case '０':
+			return '0'
+		case '１':
+			return '1'
+		case '２':
+			return '2'
+		case '３':
+			return '3'
+		case '４':
+			return '4'
+		case '５':
+			return '5'
+		case '６':
+			return '6'
+		case '７':
+			return '7'
+		case '８':
+			return '8'
+		case '９':
+			return '9'
+		default:
+			return r
+		}
+	}, expression)
+	expression = strings.TrimSpace(strings.Trim(expression, "()（）[]【】"))
+	expression = strings.ReplaceAll(expression, "第", "")
+	expression = strings.ReplaceAll(expression, "周", "")
+	if strings.Contains(expression, "*") || strings.Contains(expression, "全") {
+		for week := 1; week <= graduateWeekCount; week++ {
+			seen[week] = struct{}{}
+		}
+		return
+	}
+	for _, token := range strings.FieldsFunc(expression, func(r rune) bool {
+		switch r {
+		case ',', '，', '、', ';', '；', '|', '｜', '+', '＋', '/':
+			return true
+		default:
+			return false
+		}
+	}) {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		parity := 0
+		if strings.Contains(token, "单") {
+			parity = 1
+		} else if strings.Contains(token, "双") {
+			parity = 2
+		}
+		token = strings.ReplaceAll(token, "单周", "")
+		token = strings.ReplaceAll(token, "双周", "")
+		token = strings.ReplaceAll(token, "单", "")
+		token = strings.ReplaceAll(token, "双", "")
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		if match := regexp.MustCompile(`^(\d+)\s*[-—~～至]\s*(\d+)$`).FindStringSubmatch(token); len(match) == 3 {
+			start, startErr := strconv.Atoi(match[1])
+			end, endErr := strconv.Atoi(match[2])
+			if startErr != nil || endErr != nil {
+				continue
+			}
+			if start > end {
+				start, end = end, start
+			}
+			for week := start; week <= end; week++ {
+				addGraduateWeekValue(seen, week, parity)
+			}
+			continue
+		}
+		for _, number := range regexp.MustCompile(`\d+`).FindAllString(token, -1) {
+			week, err := strconv.Atoi(number)
+			if err == nil {
+				addGraduateWeekValue(seen, week, parity)
+			}
+		}
+	}
+}
+
+func addGraduateWeekValue(seen map[int]struct{}, week int, parity int) {
+	if week < 1 || week > graduateWeekCount {
+		return
+	}
+	if parity == 1 && week%2 == 0 {
+		return
+	}
+	if parity == 2 && week%2 != 0 {
+		return
+	}
+	seen[week] = struct{}{}
 }
 
 func integerRange(start int, end int) []int {
