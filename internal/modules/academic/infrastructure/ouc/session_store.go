@@ -734,6 +734,7 @@ func sessionOrigins(config academicconfig.OUCConfig) []*url.URL {
 		for _, operation := range []academicconfig.OperationEndpoint{
 			endpoint.Periods,
 			endpoint.Courses,
+			endpoint.CoursesFallback,
 			endpoint.Grades,
 			endpoint.Exams,
 			endpoint.Selections,

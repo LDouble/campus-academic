@@ -692,6 +692,16 @@ func (s *fakeOUCServer) handleAcademic(
 		s.writeString(writer, `{"unexpected":true}`)
 		return
 	}
+	if strings.HasSuffix(request.URL.Path, "/graduate/empty-courses") {
+		writer.Header().Set("Content-Type", "text/html")
+		s.writeString(writer, `<table class="table table-course"><tr><th colspan="2">时间</th><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr><tr><td>上午</td><td>第1节</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>`)
+		return
+	}
+	if strings.HasSuffix(request.URL.Path, "/graduate/fallback-courses") {
+		writer.Header().Set("Content-Type", "text/html")
+		s.writeString(writer, `<table class="table table-bordered table-striped"><thead><tr><th>开课学年</th><th>开课学期</th><th>班级编号</th><th>课程名称</th><th>学分</th><th>任课教师</th><th>时间与地点</th><th>备注</th></tr></thead><tbody><tr><td>2026-2027</td><td>夏秋</td><td>GRFALLBACK001</td><td>历史回退课程</td><td>2</td><td>回退教师</td><td>( 4,9-11,14周 )||星期二||第1-2节||(鱼山校区||鱼山楼群||教学楼101)</td><td></td></tr></tbody></table>`)
+		return
+	}
 	switch {
 	case strings.HasSuffix(request.URL.Path, "/catalog"):
 		if educationLevel == verificationapp.EducationGraduate {
@@ -964,6 +974,60 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 			fake.assertNoContractErrors(t)
 		})
 	}
+}
+
+func TestOUCProviderGraduateCoursesFallsBackToSelectionHistoryWhenGridIsEmpty(t *testing.T) {
+	fake := newFakeOUCServer(t, false, map[string]bool{
+		verificationapp.EducationGraduate: true,
+	})
+	config := integrationOUCConfig()
+	config.Graduate.Courses = academicconfig.OperationEndpoint{
+		Path:             "/graduate/empty-courses",
+		RequestMethod:    http.MethodGet,
+		RequestEncoding:  "query",
+		PeriodParameters: []string{"xn", "xj"},
+		PeriodSeparator:  ":",
+		ResponseEncoding: "html",
+	}
+	config.Graduate.CoursesFallback = academicconfig.OperationEndpoint{
+		Path:             "/graduate/fallback-courses",
+		RequestMethod:    http.MethodGet,
+		RequestEncoding:  "query",
+		PeriodParameters: []string{"xn", "xj"},
+		PeriodSeparator:  ":",
+		ResponseEncoding: "html",
+	}
+	provider := newIntegrationProviderWithConfig(t, fake, newMemoryOUCSessionStore(), config)
+	student := application.StudentReference{
+		UserID:         7,
+		StudentNo:      integrationStudentNo,
+		Provider:       verificationapp.ProviderOUC,
+		EducationLevel: verificationapp.EducationGraduate,
+	}
+	courses, err := provider.ListCourses(
+		context.Background(),
+		student,
+		application.Credential{StudentNo: integrationStudentNo, Password: integrationPassword},
+		"2026:11",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(courses.Courses) != 1 {
+		t.Fatalf("courses=%+v", courses.Courses)
+	}
+	course := courses.Courses[0]
+	if course.Name != "历史回退课程" ||
+		course.CourseCode != "GRFALLBACK" ||
+		course.Weekday != 2 ||
+		course.StartSection != 1 ||
+		course.EndSection != 2 ||
+		!sameIntegerValues(course.Weeks, []int{4, 9, 10, 11, 14}) {
+		t.Fatalf("fallback course=%+v", course)
+	}
+	fake.assertQueryHit(t, verificationapp.EducationGraduate, "/graduate/empty-courses")
+	fake.assertQueryHit(t, verificationapp.EducationGraduate, "/graduate/fallback-courses")
+	fake.assertNoContractErrors(t)
 }
 
 func TestOUCProviderContinuesPastPasswordExpiryWarning(t *testing.T) {

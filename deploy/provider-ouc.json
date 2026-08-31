@@ -24,7 +24,8 @@
   "graduate": {
     "service_url": "https://pgs.ouc.edu.cn/allogene/page/home.htm",
     "periods": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
-    "courses": {"path": "/py/page/student/xkgrcx.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
+    "courses": {"path": "/py/page/student/grkcb.htm?zc=-1", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
+    "courses_fallback": {"path": "/py/page/student/xkgrcx.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
     "grades": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},
     "exams": {"path": "/py/page/student/grksap.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "period_parameters": ["xn", "xj"], "period_separator": ":", "response_encoding": "html"},
     "selections": {"path": "/py/page/student/grkcgl.htm", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},

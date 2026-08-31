@@ -252,6 +252,29 @@ func (p *Provider) ListCourses(
 	}
 	result, parseErr := response.adapter.ParseCourses(response.body, response.encoding, periodID)
 	traceQueryParse(response, parseErr, len(result.Courses))
+	if parseErr == nil &&
+		len(result.Courses) == 0 &&
+		student.EducationLevel == verificationapp.EducationGraduate &&
+		strings.TrimSpace(response.fallbackOperation.Path) != "" {
+		fallbackResponse, fallbackErr := p.queryWithOperation(
+			ctx,
+			student,
+			credential,
+			queryCourses,
+			periodID,
+			&response.fallbackOperation,
+		)
+		if fallbackErr != nil {
+			return domain.CourseSchedule{}, fallbackErr
+		}
+		fallbackResult, fallbackParseErr := fallbackResponse.adapter.ParseCourses(
+			fallbackResponse.body,
+			fallbackResponse.encoding,
+			periodID,
+		)
+		traceQueryParse(fallbackResponse, fallbackParseErr, len(fallbackResult.Courses))
+		return fallbackResult, fallbackParseErr
+	}
 	return result, parseErr
 }
 
@@ -534,13 +557,14 @@ const (
 )
 
 type queryResponse struct {
-	body          []byte
-	encoding      string
-	adapter       systemAdapter
-	trace         *processTrace
-	onParseResult func(error)
-	diagnostic    ContractDiagnosticSample
-	capture       ContractDiagnosticCapture
+	body              []byte
+	encoding          string
+	adapter           systemAdapter
+	trace             *processTrace
+	onParseResult     func(error)
+	diagnostic        ContractDiagnosticSample
+	capture           ContractDiagnosticCapture
+	fallbackOperation academicconfig.OperationEndpoint
 }
 
 func traceQueryParse(response queryResponse, err error, itemCount int) {
@@ -580,6 +604,17 @@ func (p *Provider) query(
 	kind queryKind,
 	periodID string,
 ) (queryResponse, error) {
+	return p.queryWithOperation(ctx, student, credential, kind, periodID, nil)
+}
+
+func (p *Provider) queryWithOperation(
+	ctx context.Context,
+	student application.StudentReference,
+	credential application.Credential,
+	kind queryKind,
+	periodID string,
+	operationOverride *academicconfig.OperationEndpoint,
+) (queryResponse, error) {
 	config, err := p.oucConfig()
 	if err != nil {
 		return queryResponse{}, application.ErrProviderUnavailable
@@ -602,6 +637,9 @@ func (p *Provider) query(
 	}
 	endpoint := adapter.Endpoint(config)
 	operation := operationFor(endpoint, kind)
+	if operationOverride != nil {
+		operation = *operationOverride
+	}
 	if strings.TrimSpace(operation.Path) == "" {
 		trace.failure("query.finish", "operation_unconfigured", "configuration_error")
 		return queryResponse{}, application.ErrProviderUnavailable
@@ -783,11 +821,16 @@ func (p *Provider) query(
 			return queryResponse{}, application.ErrProviderUnavailable
 		}
 		trace.step("response_classification", zap.String("outcome", "accepted"), zap.Int("attempt", attempt))
+		fallbackOperation := academicconfig.OperationEndpoint{}
+		if operationOverride == nil && kind == queryCourses {
+			fallbackOperation = endpoint.CoursesFallback
+		}
 		return queryResponse{
-			body:     body,
-			encoding: operation.ResponseEncoding,
-			adapter:  adapter,
-			trace:    trace,
+			body:              body,
+			encoding:          operation.ResponseEncoding,
+			adapter:           adapter,
+			trace:             trace,
+			fallbackOperation: fallbackOperation,
 			onParseResult: func(parseErr error) {
 				if parseErr != nil {
 					p.observer.ObserveAcademicUpstreamAttempt(

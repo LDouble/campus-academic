@@ -434,6 +434,24 @@ func TestValidateEndpointAllowsUnfilteredGrades(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointAcceptsCoursesFallback(t *testing.T) {
+	t.Parallel()
+	endpoint := EndpointSet{
+		ServiceURL: "https://pgs.ouc.edu.cn/allogene/page/home.htm",
+		CoursesFallback: OperationEndpoint{
+			Path:             "/py/page/student/xkgrcx.htm",
+			RequestMethod:    "GET",
+			RequestEncoding:  "query",
+			PeriodParameters: []string{"xn", "xj"},
+			PeriodSeparator:  ":",
+			ResponseEncoding: "html",
+		},
+	}
+	if err := validateEndpoint(endpoint, "pgs.ouc.edu.cn"); err != nil {
+		t.Fatalf("courses fallback operation was rejected: %v", err)
+	}
+}
+
 func TestValidateEndpointAllowsLocallyFilteredSelections(t *testing.T) {
 	t.Parallel()
 	operation := OperationEndpoint{
