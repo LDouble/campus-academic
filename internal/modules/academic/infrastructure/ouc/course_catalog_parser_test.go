@@ -23,7 +23,7 @@ func TestParseUndergraduateCatalogPage(t *testing.T) {
 		t.Fatalf("page=%+v", page)
 	}
 	entry := page.Entries[0]
-	if entry.SourceKey != "UG-001" || entry.CourseCode != "CS001" || entry.Teachers != "教师甲、教师乙" || entry.Classes != "测试班" {
+	if entry.SourceKey != "UG-001" || entry.OpeningCode != "UG-001" || entry.CourseCode != "CS001" || entry.Teachers != "教师甲、教师乙" || entry.Classes != "测试班" {
 		t.Fatalf("entry=%+v", entry)
 	}
 }
