@@ -88,7 +88,7 @@ func parseUndergraduateCatalogPage(
 			return domain.CourseCatalogPage{}, fmt.Errorf("undergraduate catalog row invalid")
 		}
 		entry := domain.CourseCatalogEntry{
-			PeriodID: catalogValue(row, "xnxq01id", "xnxqid", "xnxq"), SourceKey: catalogValue(row, "xkh"),
+			PeriodID: catalogValue(row, "xnxq01id", "xnxqid", "xnxq"), SourceKey: catalogValue(row, "xkh"), OpeningCode: catalogValue(row, "xkh"),
 			CourseCode: catalogValue(row, "kch"), CourseName: catalogValue(row, "kcmc", "kc_mc"),
 			Department: catalogValue(row, "skyx"), Teachers: catalogValue(row, "skjs"), Campus: catalogValue(row, "xqmc"),
 			CourseType: catalogValue(row, "kccm"), Classes: catalogValue(row, "ktmc"),
