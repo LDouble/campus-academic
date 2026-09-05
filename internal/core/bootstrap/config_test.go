@@ -84,6 +84,62 @@ analytics:
 	if cfg.Analytics.QueryTimeout != 20*time.Minute {
 		t.Fatalf("analytics query timeout = %s, want 20m", cfg.Analytics.QueryTimeout)
 	}
+	if cfg.Analytics.MySQL.MaxOpenConns != 24 {
+		t.Fatalf("analytics MySQL max open conns = %d, want 24", cfg.Analytics.MySQL.MaxOpenConns)
+	}
+	if cfg.Analytics.MySQL.MaxIdleConns != 8 {
+		t.Fatalf("analytics MySQL max idle conns = %d, want 8", cfg.Analytics.MySQL.MaxIdleConns)
+	}
+	if cfg.Analytics.MySQL.ConnMaxLifetime != 30*time.Minute {
+		t.Fatalf("analytics MySQL connection max lifetime = %s, want 30m", cfg.Analytics.MySQL.ConnMaxLifetime)
+	}
+	if cfg.Analytics.MySQL.ConnMaxIdleTime != 5*time.Minute {
+		t.Fatalf("analytics MySQL connection max idle time = %s, want 5m", cfg.Analytics.MySQL.ConnMaxIdleTime)
+	}
+}
+
+func TestAnalyticsMySQLPoolEnvironmentOverrides(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS", "12")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_IDLE_CONNS", "4")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_CONN_MAX_LIFETIME", "12m")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_CONN_MAX_IDLE_TIME", "3m")
+
+	cfg, err := LoadAnalytics(writeBootstrapForTest(t, "environment: development\n"))
+	if err != nil {
+		t.Fatalf("LoadAnalytics() error = %v", err)
+	}
+	if cfg.Analytics.MySQL.MaxOpenConns != 12 || cfg.Analytics.MySQL.MaxIdleConns != 4 {
+		t.Fatalf("analytics MySQL connection pool = %+v", cfg.Analytics.MySQL)
+	}
+	if cfg.Analytics.MySQL.ConnMaxLifetime != 12*time.Minute || cfg.Analytics.MySQL.ConnMaxIdleTime != 3*time.Minute {
+		t.Fatalf("analytics MySQL connection lifetime settings = %+v", cfg.Analytics.MySQL)
+	}
+}
+
+func TestAnalyticsMySQLPoolRejectsNonPositiveEnvironmentValue(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS", "0")
+
+	if _, err := LoadAnalytics(writeBootstrapForTest(t, "environment: development\n")); err == nil {
+		t.Fatal("LoadAnalytics() accepted non-positive Analytics MySQL max open connections")
+	}
+}
+
+func TestAnalyticsMySQLPoolRejectsIdleConnectionsAboveOpenLimit(t *testing.T) {
+	setEmptyAcademicEnvironment(t)
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_DSN", "write@tcp(127.0.0.1:3306)/campus_academic")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN", "readonly@tcp(127.0.0.1:3306)/campus")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS", "4")
+	t.Setenv("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_IDLE_CONNS", "5")
+
+	if _, err := LoadAnalytics(writeBootstrapForTest(t, "environment: development\n")); err == nil {
+		t.Fatal("LoadAnalytics() accepted Analytics MySQL idle connections above open limit")
+	}
 }
 
 func TestAnalyticsRetryDelayEnvironmentOverride(t *testing.T) {

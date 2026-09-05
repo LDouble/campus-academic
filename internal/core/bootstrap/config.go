@@ -282,6 +282,18 @@ func applyDefaults(cfg *Config) {
 	if cfg.Analytics.Timezone == "" {
 		cfg.Analytics.Timezone = "Asia/Shanghai"
 	}
+	if cfg.Analytics.MySQL.MaxOpenConns <= 0 {
+		cfg.Analytics.MySQL.MaxOpenConns = 24
+	}
+	if cfg.Analytics.MySQL.MaxIdleConns <= 0 {
+		cfg.Analytics.MySQL.MaxIdleConns = 8
+	}
+	if cfg.Analytics.MySQL.ConnMaxLifetime <= 0 {
+		cfg.Analytics.MySQL.ConnMaxLifetime = 30 * time.Minute
+	}
+	if cfg.Analytics.MySQL.ConnMaxIdleTime <= 0 {
+		cfg.Analytics.MySQL.ConnMaxIdleTime = 5 * time.Minute
+	}
 	if cfg.Analytics.ScheduleHour == 0 {
 		cfg.Analytics.ScheduleHour = 4
 	}
@@ -329,6 +341,27 @@ func applyEnvironment(cfg *Config) error {
 	setString(&cfg.Analytics.ListenAddress, "CAMPUS_ACADEMIC_ANALYTICS_LISTEN")
 	setString(&cfg.Analytics.Target, "CAMPUS_ACADEMIC_ANALYTICS_TARGET")
 	setString(&cfg.Analytics.MySQL.DSN, "CAMPUS_ACADEMIC_ANALYTICS_DSN")
+	if err := setInt(&cfg.Analytics.MySQL.MaxOpenConns, "CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS"); err != nil {
+		return err
+	}
+	if cfg.Analytics.MySQL.MaxOpenConns <= 0 {
+		return errors.New("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS must be positive")
+	}
+	if err := setInt(&cfg.Analytics.MySQL.MaxIdleConns, "CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_IDLE_CONNS"); err != nil {
+		return err
+	}
+	if cfg.Analytics.MySQL.MaxIdleConns <= 0 {
+		return errors.New("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_IDLE_CONNS must be positive")
+	}
+	if cfg.Analytics.MySQL.MaxIdleConns > cfg.Analytics.MySQL.MaxOpenConns {
+		return errors.New("CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_IDLE_CONNS cannot exceed CAMPUS_ACADEMIC_ANALYTICS_MYSQL_MAX_OPEN_CONNS")
+	}
+	if err := setDuration(&cfg.Analytics.MySQL.ConnMaxLifetime, "CAMPUS_ACADEMIC_ANALYTICS_MYSQL_CONN_MAX_LIFETIME"); err != nil {
+		return err
+	}
+	if err := setDuration(&cfg.Analytics.MySQL.ConnMaxIdleTime, "CAMPUS_ACADEMIC_ANALYTICS_MYSQL_CONN_MAX_IDLE_TIME"); err != nil {
+		return err
+	}
 	setString(&cfg.Analytics.SourceDSN, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_DSN")
 	if err := setBool(&cfg.Analytics.SourceWritable, "CAMPUS_ACADEMIC_ANALYTICS_SOURCE_WRITABLE"); err != nil {
 		return err
