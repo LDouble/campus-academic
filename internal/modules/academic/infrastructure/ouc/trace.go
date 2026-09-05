@@ -18,8 +18,10 @@ import (
 )
 
 // processTrace emits one correlated, redacted view of an OUC operation. It
-// deliberately has no API for recording credentials, cookies, tickets, query
-// strings, request bodies, or response bodies.
+// deliberately has no API for recording credentials, cookies, tickets,
+// request bodies, or response bodies. The catalog request trace uses a
+// separately redacted URL helper so that pagination configuration can be
+// diagnosed without exposing secrets.
 type processTrace struct {
 	enabled        bool
 	logger         *zap.Logger
@@ -200,6 +202,47 @@ func safeParsedURLFields(prefix string, target *url.URL) []zap.Field {
 		zap.String(prefix+"_path", safeLogPath(target.EscapedPath())),
 		zap.Strings(prefix+"_query_keys", queryKeys),
 	}
+}
+
+// safeAcademicRequestURL returns a reproducible catalog request URL while
+// redacting query values that could carry credentials or session material.
+// It is intentionally limited to the academic catalog diagnostic path; other
+// OUC request traces continue to expose only query keys.
+func safeAcademicRequestURL(target string) string {
+	parsed, err := url.Parse(target)
+	if err != nil || parsed == nil {
+		return "invalid"
+	}
+	parsed.User = nil
+	parsed.Fragment = ""
+	parsed.Path = safeLogPath(parsed.EscapedPath())
+	query := parsed.Query()
+	for key, values := range query {
+		if sensitiveQueryKey(key) {
+			query[key] = []string{":redacted"}
+			continue
+		}
+		for index, value := range values {
+			if len(value) > 128 || studentLikePathSegment(value) || opaquePathSegment(value) {
+				query[key][index] = ":redacted"
+			}
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func sensitiveQueryKey(key string) bool {
+	key = strings.ToLower(strings.TrimSpace(key))
+	for _, marker := range []string{
+		"password", "passwd", "token", "ticket", "cookie", "session",
+		"credential", "authorization", "secret", "signature", "sign",
+	} {
+		if strings.Contains(key, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func safeLogPath(path string) string {
