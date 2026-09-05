@@ -15,6 +15,10 @@ import (
 )
 
 const (
+	// MaxCourseCatalogPageSize bounds a single catalog response while allowing
+	// the undergraduate OUC endpoint to return its supported 500-row pages.
+	MaxCourseCatalogPageSize = 500
+
 	// Group is the configuration-center group used by the academic provider.
 	Group = "academic_provider"
 
@@ -455,8 +459,8 @@ func validateCatalogPagination(endpoint OperationEndpoint) error {
 	if !validParameterName(strings.TrimSpace(endpoint.PageParameter)) {
 		return fmt.Errorf("page_parameter is required")
 	}
-	if endpoint.PageSize < 1 || endpoint.PageSize > 200 {
-		return fmt.Errorf("page_size must be between 1 and 200")
+	if endpoint.PageSize < 1 || endpoint.PageSize > MaxCourseCatalogPageSize {
+		return fmt.Errorf("page_size must be between 1 and %d", MaxCourseCatalogPageSize)
 	}
 	if parameter := strings.TrimSpace(endpoint.PageSizeParameter); parameter != "" && !validParameterName(parameter) {
 		return fmt.Errorf("page_size_parameter is invalid")

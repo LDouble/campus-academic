@@ -498,6 +498,25 @@ func TestValidateCourseCatalogOperation(t *testing.T) {
 	}
 }
 
+func TestValidateCourseCatalogAllowsPageSize500(t *testing.T) {
+	t.Parallel()
+	endpoint := EndpointSet{
+		ServiceURL: "https://jwgl2024.ouc.edu.cn/",
+		CourseCatalog: OperationEndpoint{
+			Path: "/jsxsd/xkgl/loadXkkbList", RequestMethod: "GET", RequestEncoding: "query",
+			PeriodParameter: "xnxqval", PageParameter: "pageNum", PageSizeParameter: "pageSize", PageSize: MaxCourseCatalogPageSize,
+			ResponseEncoding: "json",
+		},
+	}
+	if err := validateEndpoint(endpoint, "jwgl2024.ouc.edu.cn"); err != nil {
+		t.Fatalf("catalog operation with page size %d rejected: %v", MaxCourseCatalogPageSize, err)
+	}
+	endpoint.CourseCatalog.PageSize++
+	if err := validateEndpoint(endpoint, "jwgl2024.ouc.edu.cn"); err == nil {
+		t.Fatal("catalog operation above the page-size limit was accepted")
+	}
+}
+
 func TestValidateCourseCatalogAllowsServerFixedPageSize(t *testing.T) {
 	t.Parallel()
 	endpoint := EndpointSet{
