@@ -421,7 +421,12 @@ func (p *Provider) ListCourseCatalogPage(
 			trace.failure("query.finish", "invalid_operation_payload", "invalid_request", zap.Int("attempt", attempt))
 			return domain.CourseCatalogPage{}, application.ErrProviderUnavailable
 		}
-		trace.step("business_query", zap.String("outcome", "start"), zap.Int("attempt", attempt))
+		trace.step(
+			"business_query",
+			zap.String("outcome", "start"),
+			zap.Int("attempt", attempt),
+			zap.String("catalog_request_url", safeAcademicRequestURL(target)),
+		)
 		finalURL, body, requestErr := requestPageWithOptions(
 			ctx, current.client, operation.RequestMethod, target, requestBody, contentType,
 			config, trace, catalogRequestOptions(educationLevel, endpoint.ServiceURL, target),

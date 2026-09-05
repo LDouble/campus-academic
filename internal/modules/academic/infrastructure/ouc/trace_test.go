@@ -221,3 +221,27 @@ func TestSafeURLFieldsExposeOnlySortedQueryKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestSafeAcademicRequestURLKeepsPaginationAndRedactsSensitiveValues(t *testing.T) {
+	t.Parallel()
+	got := safeAcademicRequestURL(
+		"https://jwgl2024.ouc.edu.cn/jsxsd/xkgl/loadXkkbList?xnxqval=2026-2027-2&pageNum=3&pageSize=20&sf_request_type=ajax&token=secret&student=20260001",
+	)
+	for _, expected := range []string{
+		"xnxqval=2026-2027-2",
+		"pageNum=3",
+		"pageSize=20",
+		"sf_request_type=ajax",
+		"token=%3Aredacted",
+		"student=%3Aredacted",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("safeAcademicRequestURL()=%q, missing %q", got, expected)
+		}
+	}
+	for _, forbidden := range []string{"secret", "20260001"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("safeAcademicRequestURL leaked %q: %q", forbidden, got)
+		}
+	}
+}
