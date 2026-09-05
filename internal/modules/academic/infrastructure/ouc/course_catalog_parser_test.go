@@ -28,6 +28,19 @@ func TestParseUndergraduateCatalogPage(t *testing.T) {
 	}
 }
 
+func TestParseUndergraduateCatalogPageAllowsPageSize500(t *testing.T) {
+	page, err := parseUndergraduateCatalogPage(
+		"2026-2027-1", 1, academicconfig.MaxCourseCatalogPageSize,
+		[]byte(`{"code":0,"count":500,"pageSize":500,"pages":1,"data":[{"xnxq01id":"2026-2027-1","xkh":"UG-001","xqmc":"崂山","kch":"CS001","kcmc":"数据结构","kccm":"专业课","skjs":"教师甲、教师乙","skyx":"计算机学院","ktmc":"测试班","sksj":"周一 1-2 节","skdd":"教学楼101","bz":""}]}`),
+	)
+	if err != nil {
+		t.Fatalf("parseUndergraduateCatalogPage() error = %v", err)
+	}
+	if page.PageSize != academicconfig.MaxCourseCatalogPageSize || page.TotalPages != 1 {
+		t.Fatalf("page = %+v", page)
+	}
+}
+
 func TestParseUndergraduateCatalogRejectsMissingStableKey(t *testing.T) {
 	t.Parallel()
 	_, err := parseUndergraduateCatalogPage("2026-2027-1", 1, 20, []byte(`{"code":0,"count":1,"data":[{"kcmc":"课程"}]}`))

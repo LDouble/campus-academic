@@ -68,7 +68,7 @@ func parseUndergraduateCatalogPage(
 	if value, found := catalogJSONInt(payload, "limit", "pageSize", "size"); found && value > 0 {
 		pageSize = value
 	}
-	if pageSize <= 0 || pageSize > 200 {
+	if pageSize <= 0 || pageSize > academicconfig.MaxCourseCatalogPageSize {
 		return domain.CourseCatalogPage{}, fmt.Errorf("undergraduate catalog page size invalid")
 	}
 	pageCount := catalogPageCount(total, pageSize)
@@ -122,7 +122,7 @@ func parseGraduateCatalogPage(
 	if pageCount < 1 || page > pageCount {
 		return domain.CourseCatalogPage{}, fmt.Errorf("graduate catalog pagination invalid")
 	}
-	if configuredPageSize <= 0 || configuredPageSize > 200 {
+	if configuredPageSize <= 0 || configuredPageSize > academicconfig.MaxCourseCatalogPageSize {
 		return domain.CourseCatalogPage{}, fmt.Errorf("graduate catalog page size invalid")
 	}
 	rows := graduateTableRows(table)

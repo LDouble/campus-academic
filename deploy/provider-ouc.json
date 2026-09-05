@@ -17,7 +17,7 @@
     "selections": {"path": "/jsxsd/xkgl/loadXsxkjgList?lx=xkrz&type=list&pageNum=1&pageSize=200", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxqid", "response_encoding": "json"},
     "course_catalog": {
       "path": "/jsxsd/xkgl/loadXkkbList", "request_method": "GET", "request_encoding": "query", "period_parameter": "xnxqval", "response_encoding": "json",
-      "page_parameter": "pageNum", "page_size_parameter": "pageSize", "page_size": 20,
+      "page_parameter": "pageNum", "page_size_parameter": "pageSize", "page_size": 500,
       "parameters": {"kc": "", "kccm": "", "ksnd": "", "sf_request_type": "ajax", "skbj": "", "skjs": "", "skyx": "", "skzy": "", "xkh": "", "xqbh": ""}
     }
   },
