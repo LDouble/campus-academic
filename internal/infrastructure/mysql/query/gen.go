@@ -17,6 +17,7 @@ import (
 
 var (
 	Q                                     = new(Query)
+	AcademicCoursePassRateStatistic       *academicCoursePassRateStatistic
 	AcademicCourseTermStatistic           *academicCourseTermStatistic
 	AcademicInstructorCourseTermStatistic *academicInstructorCourseTermStatistic
 	AcademicStatisticsBatch               *academicStatisticsBatch
@@ -24,6 +25,7 @@ var (
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
+	AcademicCoursePassRateStatistic = &Q.AcademicCoursePassRateStatistic
 	AcademicCourseTermStatistic = &Q.AcademicCourseTermStatistic
 	AcademicInstructorCourseTermStatistic = &Q.AcademicInstructorCourseTermStatistic
 	AcademicStatisticsBatch = &Q.AcademicStatisticsBatch
@@ -32,6 +34,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
 		db:                                    db,
+		AcademicCoursePassRateStatistic:       newAcademicCoursePassRateStatistic(db, opts...),
 		AcademicCourseTermStatistic:           newAcademicCourseTermStatistic(db, opts...),
 		AcademicInstructorCourseTermStatistic: newAcademicInstructorCourseTermStatistic(db, opts...),
 		AcademicStatisticsBatch:               newAcademicStatisticsBatch(db, opts...),
@@ -41,6 +44,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 type Query struct {
 	db *gorm.DB
 
+	AcademicCoursePassRateStatistic       academicCoursePassRateStatistic
 	AcademicCourseTermStatistic           academicCourseTermStatistic
 	AcademicInstructorCourseTermStatistic academicInstructorCourseTermStatistic
 	AcademicStatisticsBatch               academicStatisticsBatch
@@ -53,6 +57,7 @@ func (q *Query) UnderlyingDB() *gorm.DB { return q.db }
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
 		db:                                    db,
+		AcademicCoursePassRateStatistic:       q.AcademicCoursePassRateStatistic.clone(db),
 		AcademicCourseTermStatistic:           q.AcademicCourseTermStatistic.clone(db),
 		AcademicInstructorCourseTermStatistic: q.AcademicInstructorCourseTermStatistic.clone(db),
 		AcademicStatisticsBatch:               q.AcademicStatisticsBatch.clone(db),
@@ -70,6 +75,7 @@ func (q *Query) WriteDB() *Query {
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
 		db:                                    db,
+		AcademicCoursePassRateStatistic:       q.AcademicCoursePassRateStatistic.replaceDB(db),
 		AcademicCourseTermStatistic:           q.AcademicCourseTermStatistic.replaceDB(db),
 		AcademicInstructorCourseTermStatistic: q.AcademicInstructorCourseTermStatistic.replaceDB(db),
 		AcademicStatisticsBatch:               q.AcademicStatisticsBatch.replaceDB(db),
@@ -77,6 +83,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 }
 
 type queryCtx struct {
+	AcademicCoursePassRateStatistic       IAcademicCoursePassRateStatisticDo
 	AcademicCourseTermStatistic           IAcademicCourseTermStatisticDo
 	AcademicInstructorCourseTermStatistic IAcademicInstructorCourseTermStatisticDo
 	AcademicStatisticsBatch               IAcademicStatisticsBatchDo
@@ -84,6 +91,7 @@ type queryCtx struct {
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
+		AcademicCoursePassRateStatistic:       q.AcademicCoursePassRateStatistic.WithContext(ctx),
 		AcademicCourseTermStatistic:           q.AcademicCourseTermStatistic.WithContext(ctx),
 		AcademicInstructorCourseTermStatistic: q.AcademicInstructorCourseTermStatistic.WithContext(ctx),
 		AcademicStatisticsBatch:               q.AcademicStatisticsBatch.WithContext(ctx),
