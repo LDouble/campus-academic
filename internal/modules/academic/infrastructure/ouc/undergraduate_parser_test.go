@@ -71,7 +71,7 @@ func TestParseUndergraduateScheduleTooltip(t *testing.T) {
 	course := schedule.Courses[0]
 	if !strings.HasPrefix(course.ID, "course-") ||
 		course.PeriodID != "2025-2026-3" ||
-		course.CourseCode != "FAKE-CLASS-1" ||
+		course.CourseCode != "FAKE1001" || course.ClassNum != "FAKE-CLASS-1" ||
 		course.Weekday != 2 ||
 		course.StartSection != 1 ||
 		course.EndSection != 2 ||
@@ -114,7 +114,7 @@ func TestParseUndergraduateScheduleSupportsSeparatedFieldsAndNote(t *testing.T) 
 		t.Fatalf("courses=%+v", schedule.Courses)
 	}
 	course := schedule.Courses[0]
-	if !strings.HasPrefix(course.ID, "course-") || course.CourseCode != "MATH-1" || course.Note != "线上教学" ||
+	if !strings.HasPrefix(course.ID, "course-") || course.CourseCode != "MATH1001" || course.ClassNum != "MATH-1" || course.Note != "线上教学" ||
 		course.Teacher != "张老师" || course.Location != "线上教学" ||
 		course.Weekday != 4 || course.StartSection != 7 || course.EndSection != 9 {
 		t.Fatalf("course=%+v", course)
@@ -153,7 +153,7 @@ func TestParseUndergraduateScheduleTreatsEmptyLocationPlaceholderAsEmpty(t *test
 	}
 }
 
-func TestParseUndergraduateScheduleUsesSelectionIDAsCourseCode(t *testing.T) {
+func TestParseUndergraduateScheduleStoresSelectionIDAsClassNum(t *testing.T) {
 	t.Parallel()
 	body := []byte(`<table class="qz-weeklyTable"><tr>` +
 		`<td class="qz-weeklyTable-label">第二大节</td>` +
@@ -174,9 +174,32 @@ func TestParseUndergraduateScheduleUsesSelectionIDAsCourseCode(t *testing.T) {
 		t.Fatalf("courses=%+v", schedule.Courses)
 	}
 	course := schedule.Courses[0]
-	if !strings.HasPrefix(course.ID, "course-") || course.CourseCode != "25214119" ||
+	if !strings.HasPrefix(course.ID, "course-") || course.CourseCode != "" || course.ClassNum != "25214119" ||
 		course.Weekday != 7 || course.StartSection != 3 || course.EndSection != 4 {
 		t.Fatalf("course=%+v", course)
+	}
+}
+
+func TestParseUndergraduateCourseSelectionScheduleKeepsEveryMeetingForClassNum(t *testing.T) {
+	t.Parallel()
+	body := []byte(`<table id="tbData"><thead><tr>
+		<th><div>选课号</div></th><th><div>课程号</div></th><th><div>课程名称</div></th><th><div>上课教师</div></th><th><div>上课时间</div></th><th><div>上课地点</div></th>
+	</tr></thead><tbody><tr>
+		<td>001234</td><td>CS1001</td><td>数据结构</td><td>张老师</td><td>1-8周 星期一 1-2节; 1-8周 星期三 3-4节</td><td>A101;B202</td>
+	</tr></tbody></table>`)
+	schedule, err := parseUndergraduateCourseSelectionSchedule(body, "html", "2026-2027-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schedule.Courses) != 2 {
+		t.Fatalf("courses=%+v", schedule.Courses)
+	}
+	first, second := schedule.Courses[0], schedule.Courses[1]
+	if first.ClassNum != "001234" || second.ClassNum != "001234" || first.CourseCode != "CS1001" || second.CourseCode != "CS1001" {
+		t.Fatalf("class numbers=%+v", schedule.Courses)
+	}
+	if first.Weekday != 1 || first.StartSection != 1 || first.EndSection != 2 || first.Location != "A101" || second.Weekday != 3 || second.StartSection != 3 || second.EndSection != 4 || second.Location != "B202" {
+		t.Fatalf("courses=%+v", schedule.Courses)
 	}
 }
 

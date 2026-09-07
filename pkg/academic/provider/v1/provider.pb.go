@@ -437,19 +437,22 @@ func (x *CacheMetadata) GetFreshUntil() *timestamppb.Timestamp {
 }
 
 type Course struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	PeriodId      string                 `protobuf:"bytes,2,opt,name=period_id,json=periodId,proto3" json:"period_id,omitempty"`
-	CourseCode    string                 `protobuf:"bytes,3,opt,name=course_code,json=courseCode,proto3" json:"course_code,omitempty"`
-	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Teacher       string                 `protobuf:"bytes,5,opt,name=teacher,proto3" json:"teacher,omitempty"`
-	Campus        string                 `protobuf:"bytes,6,opt,name=campus,proto3" json:"campus,omitempty"`
-	Location      string                 `protobuf:"bytes,7,opt,name=location,proto3" json:"location,omitempty"`
-	Weekday       int32                  `protobuf:"varint,8,opt,name=weekday,proto3" json:"weekday,omitempty"`
-	StartSection  int32                  `protobuf:"varint,9,opt,name=start_section,json=startSection,proto3" json:"start_section,omitempty"`
-	EndSection    int32                  `protobuf:"varint,10,opt,name=end_section,json=endSection,proto3" json:"end_section,omitempty"`
-	Weeks         []int32                `protobuf:"varint,11,rep,packed,name=weeks,proto3" json:"weeks,omitempty"`
-	Note          string                 `protobuf:"bytes,12,opt,name=note,proto3" json:"note,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	PeriodId     string                 `protobuf:"bytes,2,opt,name=period_id,json=periodId,proto3" json:"period_id,omitempty"`
+	CourseCode   string                 `protobuf:"bytes,3,opt,name=course_code,json=courseCode,proto3" json:"course_code,omitempty"`
+	Name         string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Teacher      string                 `protobuf:"bytes,5,opt,name=teacher,proto3" json:"teacher,omitempty"`
+	Campus       string                 `protobuf:"bytes,6,opt,name=campus,proto3" json:"campus,omitempty"`
+	Location     string                 `protobuf:"bytes,7,opt,name=location,proto3" json:"location,omitempty"`
+	Weekday      int32                  `protobuf:"varint,8,opt,name=weekday,proto3" json:"weekday,omitempty"`
+	StartSection int32                  `protobuf:"varint,9,opt,name=start_section,json=startSection,proto3" json:"start_section,omitempty"`
+	EndSection   int32                  `protobuf:"varint,10,opt,name=end_section,json=endSection,proto3" json:"end_section,omitempty"`
+	Weeks        []int32                `protobuf:"varint,11,rep,packed,name=weeks,proto3" json:"weeks,omitempty"`
+	Note         string                 `protobuf:"bytes,12,opt,name=note,proto3" json:"note,omitempty"`
+	// ClassNum is the school course-selection number. It is distinct from the
+	// course code and is used by clients to reconcile simulated selections.
+	ClassNum      string `protobuf:"bytes,13,opt,name=class_num,json=classNum,proto3" json:"class_num,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -568,6 +571,133 @@ func (x *Course) GetNote() string {
 	return ""
 }
 
+func (x *Course) GetClassNum() string {
+	if x != nil {
+		return x.ClassNum
+	}
+	return ""
+}
+
+type GetCourseSelectionScheduleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Student       *StudentReference      `protobuf:"bytes,1,opt,name=student,proto3" json:"student,omitempty"`
+	Credential    *Credential            `protobuf:"bytes,2,opt,name=credential,proto3" json:"credential,omitempty"`
+	PeriodId      string                 `protobuf:"bytes,3,opt,name=period_id,json=periodId,proto3" json:"period_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCourseSelectionScheduleRequest) Reset() {
+	*x = GetCourseSelectionScheduleRequest{}
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCourseSelectionScheduleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCourseSelectionScheduleRequest) ProtoMessage() {}
+
+func (x *GetCourseSelectionScheduleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCourseSelectionScheduleRequest.ProtoReflect.Descriptor instead.
+func (*GetCourseSelectionScheduleRequest) Descriptor() ([]byte, []int) {
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetCourseSelectionScheduleRequest) GetStudent() *StudentReference {
+	if x != nil {
+		return x.Student
+	}
+	return nil
+}
+
+func (x *GetCourseSelectionScheduleRequest) GetCredential() *Credential {
+	if x != nil {
+		return x.Credential
+	}
+	return nil
+}
+
+func (x *GetCourseSelectionScheduleRequest) GetPeriodId() string {
+	if x != nil {
+		return x.PeriodId
+	}
+	return ""
+}
+
+type GetCourseSelectionScheduleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Courses       []*Course              `protobuf:"bytes,1,rep,name=courses,proto3" json:"courses,omitempty"`
+	Cache         *CacheMetadata         `protobuf:"bytes,2,opt,name=cache,proto3" json:"cache,omitempty"`
+	ScheduleNote  string                 `protobuf:"bytes,3,opt,name=schedule_note,json=scheduleNote,proto3" json:"schedule_note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCourseSelectionScheduleResponse) Reset() {
+	*x = GetCourseSelectionScheduleResponse{}
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCourseSelectionScheduleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCourseSelectionScheduleResponse) ProtoMessage() {}
+
+func (x *GetCourseSelectionScheduleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCourseSelectionScheduleResponse.ProtoReflect.Descriptor instead.
+func (*GetCourseSelectionScheduleResponse) Descriptor() ([]byte, []int) {
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetCourseSelectionScheduleResponse) GetCourses() []*Course {
+	if x != nil {
+		return x.Courses
+	}
+	return nil
+}
+
+func (x *GetCourseSelectionScheduleResponse) GetCache() *CacheMetadata {
+	if x != nil {
+		return x.Cache
+	}
+	return nil
+}
+
+func (x *GetCourseSelectionScheduleResponse) GetScheduleNote() string {
+	if x != nil {
+		return x.ScheduleNote
+	}
+	return ""
+}
+
 type ListGradesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Student       *StudentReference      `protobuf:"bytes,1,opt,name=student,proto3" json:"student,omitempty"`
@@ -579,7 +709,7 @@ type ListGradesRequest struct {
 
 func (x *ListGradesRequest) Reset() {
 	*x = ListGradesRequest{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[8]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +721,7 @@ func (x *ListGradesRequest) String() string {
 func (*ListGradesRequest) ProtoMessage() {}
 
 func (x *ListGradesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[8]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +734,7 @@ func (x *ListGradesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGradesRequest.ProtoReflect.Descriptor instead.
 func (*ListGradesRequest) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{8}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListGradesRequest) GetStudent() *StudentReference {
@@ -638,7 +768,7 @@ type ListGradesResponse struct {
 
 func (x *ListGradesResponse) Reset() {
 	*x = ListGradesResponse{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[9]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -650,7 +780,7 @@ func (x *ListGradesResponse) String() string {
 func (*ListGradesResponse) ProtoMessage() {}
 
 func (x *ListGradesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[9]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -663,7 +793,7 @@ func (x *ListGradesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGradesResponse.ProtoReflect.Descriptor instead.
 func (*ListGradesResponse) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{9}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListGradesResponse) GetGrades() []*Grade {
@@ -697,7 +827,7 @@ type Grade struct {
 
 func (x *Grade) Reset() {
 	*x = Grade{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[10]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -709,7 +839,7 @@ func (x *Grade) String() string {
 func (*Grade) ProtoMessage() {}
 
 func (x *Grade) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[10]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +852,7 @@ func (x *Grade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Grade.ProtoReflect.Descriptor instead.
 func (*Grade) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{10}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Grade) GetId() string {
@@ -799,7 +929,7 @@ type ListExamsRequest struct {
 
 func (x *ListExamsRequest) Reset() {
 	*x = ListExamsRequest{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[11]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -811,7 +941,7 @@ func (x *ListExamsRequest) String() string {
 func (*ListExamsRequest) ProtoMessage() {}
 
 func (x *ListExamsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[11]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -824,7 +954,7 @@ func (x *ListExamsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListExamsRequest.ProtoReflect.Descriptor instead.
 func (*ListExamsRequest) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{11}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListExamsRequest) GetStudent() *StudentReference {
@@ -858,7 +988,7 @@ type ListExamsResponse struct {
 
 func (x *ListExamsResponse) Reset() {
 	*x = ListExamsResponse{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[12]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +1000,7 @@ func (x *ListExamsResponse) String() string {
 func (*ListExamsResponse) ProtoMessage() {}
 
 func (x *ListExamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[12]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +1013,7 @@ func (x *ListExamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListExamsResponse.ProtoReflect.Descriptor instead.
 func (*ListExamsResponse) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{12}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListExamsResponse) GetExams() []*Exam {
@@ -921,7 +1051,7 @@ type Exam struct {
 
 func (x *Exam) Reset() {
 	*x = Exam{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[13]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1063,7 @@ func (x *Exam) String() string {
 func (*Exam) ProtoMessage() {}
 
 func (x *Exam) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[13]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1076,7 @@ func (x *Exam) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Exam.ProtoReflect.Descriptor instead.
 func (*Exam) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{13}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Exam) GetId() string {
@@ -1051,7 +1181,7 @@ type ListCourseSelectionsRequest struct {
 
 func (x *ListCourseSelectionsRequest) Reset() {
 	*x = ListCourseSelectionsRequest{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[14]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1063,7 +1193,7 @@ func (x *ListCourseSelectionsRequest) String() string {
 func (*ListCourseSelectionsRequest) ProtoMessage() {}
 
 func (x *ListCourseSelectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[14]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1076,7 +1206,7 @@ func (x *ListCourseSelectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCourseSelectionsRequest.ProtoReflect.Descriptor instead.
 func (*ListCourseSelectionsRequest) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{14}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListCourseSelectionsRequest) GetStudent() *StudentReference {
@@ -1110,7 +1240,7 @@ type ListCourseSelectionsResponse struct {
 
 func (x *ListCourseSelectionsResponse) Reset() {
 	*x = ListCourseSelectionsResponse{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[15]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1252,7 @@ func (x *ListCourseSelectionsResponse) String() string {
 func (*ListCourseSelectionsResponse) ProtoMessage() {}
 
 func (x *ListCourseSelectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[15]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1135,7 +1265,7 @@ func (x *ListCourseSelectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCourseSelectionsResponse.ProtoReflect.Descriptor instead.
 func (*ListCourseSelectionsResponse) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{15}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListCourseSelectionsResponse) GetSelections() []*CourseSelection {
@@ -1176,7 +1306,7 @@ type CourseSelection struct {
 
 func (x *CourseSelection) Reset() {
 	*x = CourseSelection{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[16]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1188,7 +1318,7 @@ func (x *CourseSelection) String() string {
 func (*CourseSelection) ProtoMessage() {}
 
 func (x *CourseSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[16]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1201,7 +1331,7 @@ func (x *CourseSelection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CourseSelection.ProtoReflect.Descriptor instead.
 func (*CourseSelection) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{16}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CourseSelection) GetId() string {
@@ -1325,7 +1455,7 @@ type DeleteStudentSessionsRequest struct {
 
 func (x *DeleteStudentSessionsRequest) Reset() {
 	*x = DeleteStudentSessionsRequest{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[17]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1337,7 +1467,7 @@ func (x *DeleteStudentSessionsRequest) String() string {
 func (*DeleteStudentSessionsRequest) ProtoMessage() {}
 
 func (x *DeleteStudentSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[17]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1350,7 +1480,7 @@ func (x *DeleteStudentSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteStudentSessionsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteStudentSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{17}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DeleteStudentSessionsRequest) GetStudentNo() string {
@@ -1368,7 +1498,7 @@ type DeleteStudentSessionsResponse struct {
 
 func (x *DeleteStudentSessionsResponse) Reset() {
 	*x = DeleteStudentSessionsResponse{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[18]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1380,7 +1510,7 @@ func (x *DeleteStudentSessionsResponse) String() string {
 func (*DeleteStudentSessionsResponse) ProtoMessage() {}
 
 func (x *DeleteStudentSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[18]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1393,7 +1523,7 @@ func (x *DeleteStudentSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteStudentSessionsResponse.ProtoReflect.Descriptor instead.
 func (*DeleteStudentSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{18}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{20}
 }
 
 type ListCourseCatalogPageRequest struct {
@@ -1408,7 +1538,7 @@ type ListCourseCatalogPageRequest struct {
 
 func (x *ListCourseCatalogPageRequest) Reset() {
 	*x = ListCourseCatalogPageRequest{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[19]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1420,7 +1550,7 @@ func (x *ListCourseCatalogPageRequest) String() string {
 func (*ListCourseCatalogPageRequest) ProtoMessage() {}
 
 func (x *ListCourseCatalogPageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[19]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1433,7 +1563,7 @@ func (x *ListCourseCatalogPageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCourseCatalogPageRequest.ProtoReflect.Descriptor instead.
 func (*ListCourseCatalogPageRequest) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{19}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListCourseCatalogPageRequest) GetCredential() *Credential {
@@ -1478,7 +1608,7 @@ type ListCourseCatalogPageResponse struct {
 
 func (x *ListCourseCatalogPageResponse) Reset() {
 	*x = ListCourseCatalogPageResponse{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[20]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1490,7 +1620,7 @@ func (x *ListCourseCatalogPageResponse) String() string {
 func (*ListCourseCatalogPageResponse) ProtoMessage() {}
 
 func (x *ListCourseCatalogPageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[20]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1503,7 +1633,7 @@ func (x *ListCourseCatalogPageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCourseCatalogPageResponse.ProtoReflect.Descriptor instead.
 func (*ListCourseCatalogPageResponse) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{20}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListCourseCatalogPageResponse) GetEntries() []*CourseCatalogEntry {
@@ -1572,7 +1702,7 @@ type CourseCatalogEntry struct {
 
 func (x *CourseCatalogEntry) Reset() {
 	*x = CourseCatalogEntry{}
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[21]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +1714,7 @@ func (x *CourseCatalogEntry) String() string {
 func (*CourseCatalogEntry) ProtoMessage() {}
 
 func (x *CourseCatalogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_academic_provider_v1_provider_proto_msgTypes[21]
+	mi := &file_academic_provider_v1_provider_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +1727,7 @@ func (x *CourseCatalogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CourseCatalogEntry.ProtoReflect.Descriptor instead.
 func (*CourseCatalogEntry) Descriptor() ([]byte, []int) {
-	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{21}
+	return file_academic_provider_v1_provider_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CourseCatalogEntry) GetSourceKey() string {
@@ -1751,7 +1881,7 @@ const file_academic_provider_v1_provider_proto_rawDesc = "" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x127\n" +
 	"\tcached_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bcachedAt\x12;\n" +
 	"\vfresh_until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"freshUntil\"\xc2\x02\n" +
+	"freshUntil\"\xdf\x02\n" +
 	"\x06Course\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tperiod_id\x18\x02 \x01(\tR\bperiodId\x12\x1f\n" +
@@ -1767,7 +1897,18 @@ const file_academic_provider_v1_provider_proto_rawDesc = "" +
 	" \x01(\x05R\n" +
 	"endSection\x12\x14\n" +
 	"\x05weeks\x18\v \x03(\x05R\x05weeks\x12\x12\n" +
-	"\x04note\x18\f \x01(\tR\x04note\"\xb4\x01\n" +
+	"\x04note\x18\f \x01(\tR\x04note\x12\x1b\n" +
+	"\tclass_num\x18\r \x01(\tR\bclassNum\"\xc4\x01\n" +
+	"!GetCourseSelectionScheduleRequest\x12@\n" +
+	"\astudent\x18\x01 \x01(\v2&.academic.provider.v1.StudentReferenceR\astudent\x12@\n" +
+	"\n" +
+	"credential\x18\x02 \x01(\v2 .academic.provider.v1.CredentialR\n" +
+	"credential\x12\x1b\n" +
+	"\tperiod_id\x18\x03 \x01(\tR\bperiodId\"\xbc\x01\n" +
+	"\"GetCourseSelectionScheduleResponse\x126\n" +
+	"\acourses\x18\x01 \x03(\v2\x1c.academic.provider.v1.CourseR\acourses\x129\n" +
+	"\x05cache\x18\x02 \x01(\v2#.academic.provider.v1.CacheMetadataR\x05cache\x12#\n" +
+	"\rschedule_note\x18\x03 \x01(\tR\fscheduleNote\"\xb4\x01\n" +
 	"\x11ListGradesRequest\x12@\n" +
 	"\astudent\x18\x01 \x01(\v2&.academic.provider.v1.StudentReferenceR\astudent\x12@\n" +
 	"\n" +
@@ -1900,10 +2041,11 @@ const file_academic_provider_v1_provider_proto_rawDesc = "" +
 	"\blanguage\x18\r \x01(\tR\blanguage\x12\x1a\n" +
 	"\bcapacity\x18\x0e \x01(\x05R\bcapacity\x12\x1a\n" +
 	"\benrolled\x18\x0f \x01(\x05R\benrolled\x12\x12\n" +
-	"\x04note\x18\x10 \x01(\tR\x04note2\xb4\x06\n" +
+	"\x04note\x18\x10 \x01(\tR\x04note2\xc6\a\n" +
 	"\x17AcademicProviderService\x12q\n" +
 	"\x10VerifyCredential\x12-.academic.provider.v1.VerifyCredentialRequest\x1a..academic.provider.v1.VerifyCredentialResponse\x12b\n" +
-	"\vListCourses\x12(.academic.provider.v1.ListCoursesRequest\x1a).academic.provider.v1.ListCoursesResponse\x12_\n" +
+	"\vListCourses\x12(.academic.provider.v1.ListCoursesRequest\x1a).academic.provider.v1.ListCoursesResponse\x12\x8f\x01\n" +
+	"\x1aGetCourseSelectionSchedule\x127.academic.provider.v1.GetCourseSelectionScheduleRequest\x1a8.academic.provider.v1.GetCourseSelectionScheduleResponse\x12_\n" +
 	"\n" +
 	"ListGrades\x12'.academic.provider.v1.ListGradesRequest\x1a(.academic.provider.v1.ListGradesResponse\x12\\\n" +
 	"\tListExams\x12&.academic.provider.v1.ListExamsRequest\x1a'.academic.provider.v1.ListExamsResponse\x12}\n" +
@@ -1923,31 +2065,33 @@ func file_academic_provider_v1_provider_proto_rawDescGZIP() []byte {
 	return file_academic_provider_v1_provider_proto_rawDescData
 }
 
-var file_academic_provider_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_academic_provider_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_academic_provider_v1_provider_proto_goTypes = []any{
-	(*Credential)(nil),                    // 0: academic.provider.v1.Credential
-	(*StudentReference)(nil),              // 1: academic.provider.v1.StudentReference
-	(*VerifyCredentialRequest)(nil),       // 2: academic.provider.v1.VerifyCredentialRequest
-	(*VerifyCredentialResponse)(nil),      // 3: academic.provider.v1.VerifyCredentialResponse
-	(*ListCoursesRequest)(nil),            // 4: academic.provider.v1.ListCoursesRequest
-	(*ListCoursesResponse)(nil),           // 5: academic.provider.v1.ListCoursesResponse
-	(*CacheMetadata)(nil),                 // 6: academic.provider.v1.CacheMetadata
-	(*Course)(nil),                        // 7: academic.provider.v1.Course
-	(*ListGradesRequest)(nil),             // 8: academic.provider.v1.ListGradesRequest
-	(*ListGradesResponse)(nil),            // 9: academic.provider.v1.ListGradesResponse
-	(*Grade)(nil),                         // 10: academic.provider.v1.Grade
-	(*ListExamsRequest)(nil),              // 11: academic.provider.v1.ListExamsRequest
-	(*ListExamsResponse)(nil),             // 12: academic.provider.v1.ListExamsResponse
-	(*Exam)(nil),                          // 13: academic.provider.v1.Exam
-	(*ListCourseSelectionsRequest)(nil),   // 14: academic.provider.v1.ListCourseSelectionsRequest
-	(*ListCourseSelectionsResponse)(nil),  // 15: academic.provider.v1.ListCourseSelectionsResponse
-	(*CourseSelection)(nil),               // 16: academic.provider.v1.CourseSelection
-	(*DeleteStudentSessionsRequest)(nil),  // 17: academic.provider.v1.DeleteStudentSessionsRequest
-	(*DeleteStudentSessionsResponse)(nil), // 18: academic.provider.v1.DeleteStudentSessionsResponse
-	(*ListCourseCatalogPageRequest)(nil),  // 19: academic.provider.v1.ListCourseCatalogPageRequest
-	(*ListCourseCatalogPageResponse)(nil), // 20: academic.provider.v1.ListCourseCatalogPageResponse
-	(*CourseCatalogEntry)(nil),            // 21: academic.provider.v1.CourseCatalogEntry
-	(*timestamppb.Timestamp)(nil),         // 22: google.protobuf.Timestamp
+	(*Credential)(nil),                         // 0: academic.provider.v1.Credential
+	(*StudentReference)(nil),                   // 1: academic.provider.v1.StudentReference
+	(*VerifyCredentialRequest)(nil),            // 2: academic.provider.v1.VerifyCredentialRequest
+	(*VerifyCredentialResponse)(nil),           // 3: academic.provider.v1.VerifyCredentialResponse
+	(*ListCoursesRequest)(nil),                 // 4: academic.provider.v1.ListCoursesRequest
+	(*ListCoursesResponse)(nil),                // 5: academic.provider.v1.ListCoursesResponse
+	(*CacheMetadata)(nil),                      // 6: academic.provider.v1.CacheMetadata
+	(*Course)(nil),                             // 7: academic.provider.v1.Course
+	(*GetCourseSelectionScheduleRequest)(nil),  // 8: academic.provider.v1.GetCourseSelectionScheduleRequest
+	(*GetCourseSelectionScheduleResponse)(nil), // 9: academic.provider.v1.GetCourseSelectionScheduleResponse
+	(*ListGradesRequest)(nil),                  // 10: academic.provider.v1.ListGradesRequest
+	(*ListGradesResponse)(nil),                 // 11: academic.provider.v1.ListGradesResponse
+	(*Grade)(nil),                              // 12: academic.provider.v1.Grade
+	(*ListExamsRequest)(nil),                   // 13: academic.provider.v1.ListExamsRequest
+	(*ListExamsResponse)(nil),                  // 14: academic.provider.v1.ListExamsResponse
+	(*Exam)(nil),                               // 15: academic.provider.v1.Exam
+	(*ListCourseSelectionsRequest)(nil),        // 16: academic.provider.v1.ListCourseSelectionsRequest
+	(*ListCourseSelectionsResponse)(nil),       // 17: academic.provider.v1.ListCourseSelectionsResponse
+	(*CourseSelection)(nil),                    // 18: academic.provider.v1.CourseSelection
+	(*DeleteStudentSessionsRequest)(nil),       // 19: academic.provider.v1.DeleteStudentSessionsRequest
+	(*DeleteStudentSessionsResponse)(nil),      // 20: academic.provider.v1.DeleteStudentSessionsResponse
+	(*ListCourseCatalogPageRequest)(nil),       // 21: academic.provider.v1.ListCourseCatalogPageRequest
+	(*ListCourseCatalogPageResponse)(nil),      // 22: academic.provider.v1.ListCourseCatalogPageResponse
+	(*CourseCatalogEntry)(nil),                 // 23: academic.provider.v1.CourseCatalogEntry
+	(*timestamppb.Timestamp)(nil),              // 24: google.protobuf.Timestamp
 }
 var file_academic_provider_v1_provider_proto_depIdxs = []int32{
 	0,  // 0: academic.provider.v1.VerifyCredentialRequest.credential:type_name -> academic.provider.v1.Credential
@@ -1955,44 +2099,50 @@ var file_academic_provider_v1_provider_proto_depIdxs = []int32{
 	0,  // 2: academic.provider.v1.ListCoursesRequest.credential:type_name -> academic.provider.v1.Credential
 	7,  // 3: academic.provider.v1.ListCoursesResponse.courses:type_name -> academic.provider.v1.Course
 	6,  // 4: academic.provider.v1.ListCoursesResponse.cache:type_name -> academic.provider.v1.CacheMetadata
-	22, // 5: academic.provider.v1.CacheMetadata.cached_at:type_name -> google.protobuf.Timestamp
-	22, // 6: academic.provider.v1.CacheMetadata.fresh_until:type_name -> google.protobuf.Timestamp
-	1,  // 7: academic.provider.v1.ListGradesRequest.student:type_name -> academic.provider.v1.StudentReference
-	0,  // 8: academic.provider.v1.ListGradesRequest.credential:type_name -> academic.provider.v1.Credential
-	10, // 9: academic.provider.v1.ListGradesResponse.grades:type_name -> academic.provider.v1.Grade
-	6,  // 10: academic.provider.v1.ListGradesResponse.cache:type_name -> academic.provider.v1.CacheMetadata
-	1,  // 11: academic.provider.v1.ListExamsRequest.student:type_name -> academic.provider.v1.StudentReference
-	0,  // 12: academic.provider.v1.ListExamsRequest.credential:type_name -> academic.provider.v1.Credential
-	13, // 13: academic.provider.v1.ListExamsResponse.exams:type_name -> academic.provider.v1.Exam
-	6,  // 14: academic.provider.v1.ListExamsResponse.cache:type_name -> academic.provider.v1.CacheMetadata
-	22, // 15: academic.provider.v1.Exam.start_at:type_name -> google.protobuf.Timestamp
-	22, // 16: academic.provider.v1.Exam.end_at:type_name -> google.protobuf.Timestamp
-	1,  // 17: academic.provider.v1.ListCourseSelectionsRequest.student:type_name -> academic.provider.v1.StudentReference
-	0,  // 18: academic.provider.v1.ListCourseSelectionsRequest.credential:type_name -> academic.provider.v1.Credential
-	16, // 19: academic.provider.v1.ListCourseSelectionsResponse.selections:type_name -> academic.provider.v1.CourseSelection
-	6,  // 20: academic.provider.v1.ListCourseSelectionsResponse.cache:type_name -> academic.provider.v1.CacheMetadata
-	22, // 21: academic.provider.v1.CourseSelection.selected_at:type_name -> google.protobuf.Timestamp
-	0,  // 22: academic.provider.v1.ListCourseCatalogPageRequest.credential:type_name -> academic.provider.v1.Credential
-	21, // 23: academic.provider.v1.ListCourseCatalogPageResponse.entries:type_name -> academic.provider.v1.CourseCatalogEntry
-	2,  // 24: academic.provider.v1.AcademicProviderService.VerifyCredential:input_type -> academic.provider.v1.VerifyCredentialRequest
-	4,  // 25: academic.provider.v1.AcademicProviderService.ListCourses:input_type -> academic.provider.v1.ListCoursesRequest
-	8,  // 26: academic.provider.v1.AcademicProviderService.ListGrades:input_type -> academic.provider.v1.ListGradesRequest
-	11, // 27: academic.provider.v1.AcademicProviderService.ListExams:input_type -> academic.provider.v1.ListExamsRequest
-	14, // 28: academic.provider.v1.AcademicProviderService.ListCourseSelections:input_type -> academic.provider.v1.ListCourseSelectionsRequest
-	19, // 29: academic.provider.v1.AcademicProviderService.ListCourseCatalogPage:input_type -> academic.provider.v1.ListCourseCatalogPageRequest
-	17, // 30: academic.provider.v1.AcademicProviderService.DeleteStudentSessions:input_type -> academic.provider.v1.DeleteStudentSessionsRequest
-	3,  // 31: academic.provider.v1.AcademicProviderService.VerifyCredential:output_type -> academic.provider.v1.VerifyCredentialResponse
-	5,  // 32: academic.provider.v1.AcademicProviderService.ListCourses:output_type -> academic.provider.v1.ListCoursesResponse
-	9,  // 33: academic.provider.v1.AcademicProviderService.ListGrades:output_type -> academic.provider.v1.ListGradesResponse
-	12, // 34: academic.provider.v1.AcademicProviderService.ListExams:output_type -> academic.provider.v1.ListExamsResponse
-	15, // 35: academic.provider.v1.AcademicProviderService.ListCourseSelections:output_type -> academic.provider.v1.ListCourseSelectionsResponse
-	20, // 36: academic.provider.v1.AcademicProviderService.ListCourseCatalogPage:output_type -> academic.provider.v1.ListCourseCatalogPageResponse
-	18, // 37: academic.provider.v1.AcademicProviderService.DeleteStudentSessions:output_type -> academic.provider.v1.DeleteStudentSessionsResponse
-	31, // [31:38] is the sub-list for method output_type
-	24, // [24:31] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	24, // 5: academic.provider.v1.CacheMetadata.cached_at:type_name -> google.protobuf.Timestamp
+	24, // 6: academic.provider.v1.CacheMetadata.fresh_until:type_name -> google.protobuf.Timestamp
+	1,  // 7: academic.provider.v1.GetCourseSelectionScheduleRequest.student:type_name -> academic.provider.v1.StudentReference
+	0,  // 8: academic.provider.v1.GetCourseSelectionScheduleRequest.credential:type_name -> academic.provider.v1.Credential
+	7,  // 9: academic.provider.v1.GetCourseSelectionScheduleResponse.courses:type_name -> academic.provider.v1.Course
+	6,  // 10: academic.provider.v1.GetCourseSelectionScheduleResponse.cache:type_name -> academic.provider.v1.CacheMetadata
+	1,  // 11: academic.provider.v1.ListGradesRequest.student:type_name -> academic.provider.v1.StudentReference
+	0,  // 12: academic.provider.v1.ListGradesRequest.credential:type_name -> academic.provider.v1.Credential
+	12, // 13: academic.provider.v1.ListGradesResponse.grades:type_name -> academic.provider.v1.Grade
+	6,  // 14: academic.provider.v1.ListGradesResponse.cache:type_name -> academic.provider.v1.CacheMetadata
+	1,  // 15: academic.provider.v1.ListExamsRequest.student:type_name -> academic.provider.v1.StudentReference
+	0,  // 16: academic.provider.v1.ListExamsRequest.credential:type_name -> academic.provider.v1.Credential
+	15, // 17: academic.provider.v1.ListExamsResponse.exams:type_name -> academic.provider.v1.Exam
+	6,  // 18: academic.provider.v1.ListExamsResponse.cache:type_name -> academic.provider.v1.CacheMetadata
+	24, // 19: academic.provider.v1.Exam.start_at:type_name -> google.protobuf.Timestamp
+	24, // 20: academic.provider.v1.Exam.end_at:type_name -> google.protobuf.Timestamp
+	1,  // 21: academic.provider.v1.ListCourseSelectionsRequest.student:type_name -> academic.provider.v1.StudentReference
+	0,  // 22: academic.provider.v1.ListCourseSelectionsRequest.credential:type_name -> academic.provider.v1.Credential
+	18, // 23: academic.provider.v1.ListCourseSelectionsResponse.selections:type_name -> academic.provider.v1.CourseSelection
+	6,  // 24: academic.provider.v1.ListCourseSelectionsResponse.cache:type_name -> academic.provider.v1.CacheMetadata
+	24, // 25: academic.provider.v1.CourseSelection.selected_at:type_name -> google.protobuf.Timestamp
+	0,  // 26: academic.provider.v1.ListCourseCatalogPageRequest.credential:type_name -> academic.provider.v1.Credential
+	23, // 27: academic.provider.v1.ListCourseCatalogPageResponse.entries:type_name -> academic.provider.v1.CourseCatalogEntry
+	2,  // 28: academic.provider.v1.AcademicProviderService.VerifyCredential:input_type -> academic.provider.v1.VerifyCredentialRequest
+	4,  // 29: academic.provider.v1.AcademicProviderService.ListCourses:input_type -> academic.provider.v1.ListCoursesRequest
+	8,  // 30: academic.provider.v1.AcademicProviderService.GetCourseSelectionSchedule:input_type -> academic.provider.v1.GetCourseSelectionScheduleRequest
+	10, // 31: academic.provider.v1.AcademicProviderService.ListGrades:input_type -> academic.provider.v1.ListGradesRequest
+	13, // 32: academic.provider.v1.AcademicProviderService.ListExams:input_type -> academic.provider.v1.ListExamsRequest
+	16, // 33: academic.provider.v1.AcademicProviderService.ListCourseSelections:input_type -> academic.provider.v1.ListCourseSelectionsRequest
+	21, // 34: academic.provider.v1.AcademicProviderService.ListCourseCatalogPage:input_type -> academic.provider.v1.ListCourseCatalogPageRequest
+	19, // 35: academic.provider.v1.AcademicProviderService.DeleteStudentSessions:input_type -> academic.provider.v1.DeleteStudentSessionsRequest
+	3,  // 36: academic.provider.v1.AcademicProviderService.VerifyCredential:output_type -> academic.provider.v1.VerifyCredentialResponse
+	5,  // 37: academic.provider.v1.AcademicProviderService.ListCourses:output_type -> academic.provider.v1.ListCoursesResponse
+	9,  // 38: academic.provider.v1.AcademicProviderService.GetCourseSelectionSchedule:output_type -> academic.provider.v1.GetCourseSelectionScheduleResponse
+	11, // 39: academic.provider.v1.AcademicProviderService.ListGrades:output_type -> academic.provider.v1.ListGradesResponse
+	14, // 40: academic.provider.v1.AcademicProviderService.ListExams:output_type -> academic.provider.v1.ListExamsResponse
+	17, // 41: academic.provider.v1.AcademicProviderService.ListCourseSelections:output_type -> academic.provider.v1.ListCourseSelectionsResponse
+	22, // 42: academic.provider.v1.AcademicProviderService.ListCourseCatalogPage:output_type -> academic.provider.v1.ListCourseCatalogPageResponse
+	20, // 43: academic.provider.v1.AcademicProviderService.DeleteStudentSessions:output_type -> academic.provider.v1.DeleteStudentSessionsResponse
+	36, // [36:44] is the sub-list for method output_type
+	28, // [28:36] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_academic_provider_v1_provider_proto_init() }
@@ -2000,15 +2150,15 @@ func file_academic_provider_v1_provider_proto_init() {
 	if File_academic_provider_v1_provider_proto != nil {
 		return
 	}
-	file_academic_provider_v1_provider_proto_msgTypes[10].OneofWrappers = []any{}
-	file_academic_provider_v1_provider_proto_msgTypes[16].OneofWrappers = []any{}
+	file_academic_provider_v1_provider_proto_msgTypes[12].OneofWrappers = []any{}
+	file_academic_provider_v1_provider_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_academic_provider_v1_provider_proto_rawDesc), len(file_academic_provider_v1_provider_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   22,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

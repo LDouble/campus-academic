@@ -278,6 +278,38 @@ func (p *Provider) ListCourses(
 	return result, parseErr
 }
 
+// GetCourseSelectionSchedule reads the currently selected undergraduate courses.
+// The school requires entering the selection context before its notice page can
+// expose table#tbData, so both GET requests must stay in this order.
+func (p *Provider) GetCourseSelectionSchedule(
+	ctx context.Context,
+	student application.StudentReference,
+	credential application.Credential,
+	periodID string,
+) (domain.CourseSchedule, error) {
+	config, err := p.oucConfig()
+	if err != nil || strings.TrimSpace(config.IndexSelectionSessionID) == "" || student.EducationLevel != verificationapp.EducationUndergraduate {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	entry := academicconfig.OperationEndpoint{
+		Path: "/jsxsd/xsxk/newXsxkzx", RequestMethod: "GET", RequestEncoding: "query", ResponseEncoding: "html",
+		Parameters: map[string]string{"jx0502zbid": config.IndexSelectionSessionID, "isallsc": ""},
+	}
+	entryResponse, err := p.queryWithOperation(ctx, student, credential, queryCourseSelectionSchedule, periodID, &entry)
+	if err != nil {
+		return domain.CourseSchedule{}, err
+	}
+	traceQueryParse(entryResponse, nil, 0)
+	notice := academicconfig.OperationEndpoint{Path: "/jsxsd/xsxk/xsxk_tzsm", RequestMethod: "GET", RequestEncoding: "query", ResponseEncoding: "html"}
+	response, err := p.queryWithOperation(ctx, student, credential, queryCourseSelectionSchedule, periodID, &notice)
+	if err != nil {
+		return domain.CourseSchedule{}, err
+	}
+	result, parseErr := response.adapter.ParseCourseSelectionSchedule(response.body, response.encoding, periodID)
+	traceQueryParse(response, parseErr, len(result.Courses))
+	return result, parseErr
+}
+
 // ListGrades returns normalized released grades.
 func (p *Provider) ListGrades(
 	ctx context.Context,
@@ -559,6 +591,7 @@ const (
 	queryGrades
 	queryExams
 	querySelections
+	queryCourseSelectionSchedule
 )
 
 type queryResponse struct {
@@ -1629,6 +1662,8 @@ func queryKindName(kind queryKind) string {
 		return "exams"
 	case querySelections:
 		return "selections"
+	case queryCourseSelectionSchedule:
+		return "course_selection_schedule"
 	default:
 		return "periods"
 	}

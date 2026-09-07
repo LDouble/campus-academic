@@ -128,6 +128,35 @@ func (s *Server) ListCourses(
 	})
 }
 
+// GetCourseSelectionSchedule returns selected-course timetable entries in the
+// same normalized shape as the official schedule.
+func (s *Server) GetCourseSelectionSchedule(
+	ctx context.Context,
+	request *academicpb.GetCourseSelectionScheduleRequest,
+) (*academicpb.GetCourseSelectionScheduleResponse, error) {
+	student, credential, err := queryInput(request.GetStudent(), request.GetCredential())
+	if err != nil || strings.TrimSpace(request.GetPeriodId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid_request")
+	}
+	return withPermit(ctx, s, func() (*academicpb.GetCourseSelectionScheduleResponse, error) {
+		provider, ok := s.queries.(interface {
+			GetCourseSelectionSchedule(context.Context, academicapp.StudentReference, academicapp.Credential, string) (domain.CourseSchedule, error)
+		})
+		if !ok {
+			return nil, academicapp.ErrProviderUnavailable
+		}
+		result, queryErr := provider.GetCourseSelectionSchedule(ctx, student, credential, request.GetPeriodId())
+		if queryErr != nil {
+			return nil, queryErr
+		}
+		rows := make([]*academicpb.Course, len(result.Courses))
+		for index := range result.Courses {
+			rows[index] = courseToProto(result.Courses[index])
+		}
+		return &academicpb.GetCourseSelectionScheduleResponse{Courses: rows, ScheduleNote: result.ScheduleNote}, nil
+	})
+}
+
 // ListGrades returns normalized grade records.
 func (s *Server) ListGrades(
 	ctx context.Context,
@@ -429,7 +458,8 @@ func courseToProto(row domain.Course) *academicpb.Course {
 	}
 	return &academicpb.Course{
 		Id: row.ID, PeriodId: row.PeriodID, CourseCode: row.CourseCode,
-		Name: row.Name, Teacher: row.Teacher, Campus: row.Campus, Location: row.Location,
+		ClassNum: row.ClassNum,
+		Name:     row.Name, Teacher: row.Teacher, Campus: row.Campus, Location: row.Location,
 		Note:    row.Note,
 		Weekday: int32(row.Weekday), StartSection: int32(row.StartSection),
 		EndSection: int32(row.EndSection), Weeks: weeks,

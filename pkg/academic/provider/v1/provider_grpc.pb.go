@@ -19,13 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AcademicProviderService_VerifyCredential_FullMethodName      = "/academic.provider.v1.AcademicProviderService/VerifyCredential"
-	AcademicProviderService_ListCourses_FullMethodName           = "/academic.provider.v1.AcademicProviderService/ListCourses"
-	AcademicProviderService_ListGrades_FullMethodName            = "/academic.provider.v1.AcademicProviderService/ListGrades"
-	AcademicProviderService_ListExams_FullMethodName             = "/academic.provider.v1.AcademicProviderService/ListExams"
-	AcademicProviderService_ListCourseSelections_FullMethodName  = "/academic.provider.v1.AcademicProviderService/ListCourseSelections"
-	AcademicProviderService_ListCourseCatalogPage_FullMethodName = "/academic.provider.v1.AcademicProviderService/ListCourseCatalogPage"
-	AcademicProviderService_DeleteStudentSessions_FullMethodName = "/academic.provider.v1.AcademicProviderService/DeleteStudentSessions"
+	AcademicProviderService_VerifyCredential_FullMethodName           = "/academic.provider.v1.AcademicProviderService/VerifyCredential"
+	AcademicProviderService_ListCourses_FullMethodName                = "/academic.provider.v1.AcademicProviderService/ListCourses"
+	AcademicProviderService_GetCourseSelectionSchedule_FullMethodName = "/academic.provider.v1.AcademicProviderService/GetCourseSelectionSchedule"
+	AcademicProviderService_ListGrades_FullMethodName                 = "/academic.provider.v1.AcademicProviderService/ListGrades"
+	AcademicProviderService_ListExams_FullMethodName                  = "/academic.provider.v1.AcademicProviderService/ListExams"
+	AcademicProviderService_ListCourseSelections_FullMethodName       = "/academic.provider.v1.AcademicProviderService/ListCourseSelections"
+	AcademicProviderService_ListCourseCatalogPage_FullMethodName      = "/academic.provider.v1.AcademicProviderService/ListCourseCatalogPage"
+	AcademicProviderService_DeleteStudentSessions_FullMethodName      = "/academic.provider.v1.AcademicProviderService/DeleteStudentSessions"
 )
 
 // AcademicProviderServiceClient is the client API for AcademicProviderService service.
@@ -34,6 +35,7 @@ const (
 type AcademicProviderServiceClient interface {
 	VerifyCredential(ctx context.Context, in *VerifyCredentialRequest, opts ...grpc.CallOption) (*VerifyCredentialResponse, error)
 	ListCourses(ctx context.Context, in *ListCoursesRequest, opts ...grpc.CallOption) (*ListCoursesResponse, error)
+	GetCourseSelectionSchedule(ctx context.Context, in *GetCourseSelectionScheduleRequest, opts ...grpc.CallOption) (*GetCourseSelectionScheduleResponse, error)
 	ListGrades(ctx context.Context, in *ListGradesRequest, opts ...grpc.CallOption) (*ListGradesResponse, error)
 	ListExams(ctx context.Context, in *ListExamsRequest, opts ...grpc.CallOption) (*ListExamsResponse, error)
 	ListCourseSelections(ctx context.Context, in *ListCourseSelectionsRequest, opts ...grpc.CallOption) (*ListCourseSelectionsResponse, error)
@@ -63,6 +65,16 @@ func (c *academicProviderServiceClient) ListCourses(ctx context.Context, in *Lis
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListCoursesResponse)
 	err := c.cc.Invoke(ctx, AcademicProviderService_ListCourses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *academicProviderServiceClient) GetCourseSelectionSchedule(ctx context.Context, in *GetCourseSelectionScheduleRequest, opts ...grpc.CallOption) (*GetCourseSelectionScheduleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCourseSelectionScheduleResponse)
+	err := c.cc.Invoke(ctx, AcademicProviderService_GetCourseSelectionSchedule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +137,7 @@ func (c *academicProviderServiceClient) DeleteStudentSessions(ctx context.Contex
 type AcademicProviderServiceServer interface {
 	VerifyCredential(context.Context, *VerifyCredentialRequest) (*VerifyCredentialResponse, error)
 	ListCourses(context.Context, *ListCoursesRequest) (*ListCoursesResponse, error)
+	GetCourseSelectionSchedule(context.Context, *GetCourseSelectionScheduleRequest) (*GetCourseSelectionScheduleResponse, error)
 	ListGrades(context.Context, *ListGradesRequest) (*ListGradesResponse, error)
 	ListExams(context.Context, *ListExamsRequest) (*ListExamsResponse, error)
 	ListCourseSelections(context.Context, *ListCourseSelectionsRequest) (*ListCourseSelectionsResponse, error)
@@ -145,6 +158,9 @@ func (UnimplementedAcademicProviderServiceServer) VerifyCredential(context.Conte
 }
 func (UnimplementedAcademicProviderServiceServer) ListCourses(context.Context, *ListCoursesRequest) (*ListCoursesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCourses not implemented")
+}
+func (UnimplementedAcademicProviderServiceServer) GetCourseSelectionSchedule(context.Context, *GetCourseSelectionScheduleRequest) (*GetCourseSelectionScheduleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCourseSelectionSchedule not implemented")
 }
 func (UnimplementedAcademicProviderServiceServer) ListGrades(context.Context, *ListGradesRequest) (*ListGradesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListGrades not implemented")
@@ -215,6 +231,24 @@ func _AcademicProviderService_ListCourses_Handler(srv interface{}, ctx context.C
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AcademicProviderServiceServer).ListCourses(ctx, req.(*ListCoursesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AcademicProviderService_GetCourseSelectionSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCourseSelectionScheduleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AcademicProviderServiceServer).GetCourseSelectionSchedule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AcademicProviderService_GetCourseSelectionSchedule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AcademicProviderServiceServer).GetCourseSelectionSchedule(ctx, req.(*GetCourseSelectionScheduleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -323,6 +357,10 @@ var AcademicProviderService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListCourses",
 			Handler:    _AcademicProviderService_ListCourses_Handler,
+		},
+		{
+			MethodName: "GetCourseSelectionSchedule",
+			Handler:    _AcademicProviderService_GetCourseSelectionSchedule_Handler,
 		},
 		{
 			MethodName: "ListGrades",

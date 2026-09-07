@@ -104,6 +104,95 @@ func parseUndergraduateCourses(
 	}, nil
 }
 
+// parseUndergraduateCourseSelectionSchedule parses the selected-course page
+// reached through jsxsd/xsxk/xsxk_tzsm. Its table is intentionally handled
+// separately from the normal weekly timetable because the upstream contract is
+// table#tbData and one selected course can contain several meeting times.
+func parseUndergraduateCourseSelectionSchedule(body []byte, encoding, periodID string) (domain.CourseSchedule, error) {
+	if encoding != "html" {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	root, err := html.Parse(strings.NewReader(string(body)))
+	if err != nil {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	table := findElement(root, func(node *html.Node) bool {
+		return node.Data == "table" && attribute(node, "id") == "tbData"
+	})
+	if table == nil {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	headers := make([]string, 0)
+	for _, row := range findElements(table, func(node *html.Node) bool { return node.Data == "tr" && ancestorElement(node.Parent, "table") == table }) {
+		cells := directTableCells(row)
+		if len(cells) == 0 || cells[0].Data != "th" {
+			continue
+		}
+		for _, cell := range cells {
+			value := compactText(cell)
+			if div := findElement(cell, func(node *html.Node) bool { return node.Data == "div" }); div != nil {
+				value = compactText(div)
+			}
+			headers = append(headers, value)
+		}
+		break
+	}
+	if len(headers) == 0 {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	courses := make([]domain.Course, 0)
+	for _, row := range findElements(table, func(node *html.Node) bool { return node.Data == "tr" && ancestorElement(node.Parent, "table") == table }) {
+		cells := directTableCells(row)
+		if len(cells) == 0 || cells[0].Data != "td" {
+			continue
+		}
+		values := make(map[string]string, len(headers))
+		for index, cell := range cells {
+			if index < len(headers) {
+				values[headers[index]] = strings.TrimSpace(strings.ReplaceAll(compactText(cell), "\u00a0", ""))
+			}
+		}
+		name := firstNonEmpty(values, "课程名称", "课程名")
+		if name == "" {
+			continue
+		}
+		times := splitSelectionScheduleCell(firstNonEmpty(values, "上课时间", "时间"))
+		locations := splitSelectionScheduleCell(firstNonEmpty(values, "上课地点", "地点"))
+		for index, meeting := range times {
+			weeks, start, end := parseScheduleTime(meeting)
+			weekday := weekdayFromScheduleText(meeting)
+			if len(weeks) == 0 || weekday == 0 || start <= 0 || end < start {
+				continue
+			}
+			location := ""
+			if len(locations) == 1 {
+				location = locations[0]
+			} else if index < len(locations) {
+				location = locations[index]
+			}
+			course := domain.Course{PeriodID: periodID, CourseCode: firstNonEmpty(values, "课程号", "课程编号"), ClassNum: firstNonEmpty(values, "选课号", "教学班号"), Name: name, Teacher: firstNonEmpty(values, "上课教师", "任课教师", "教师"), Location: location, Weekday: weekday, StartSection: start, EndSection: end, Weeks: weeks}
+			course.ID = derivedUndergraduateCourseID(course)
+			courses = append(courses, course)
+		}
+	}
+	return domain.CourseSchedule{Courses: mergeUndergraduateCourses(courses)}, nil
+}
+
+func firstNonEmpty(values map[string]string, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(values[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func splitSelectionScheduleCell(value string) []string {
+	return strings.FieldsFunc(value, func(character rune) bool {
+		return character == ';' || character == '；' || character == '\n' || character == '\r'
+	})
+}
+
 func parseUndergraduateCourseItem(item *html.Node, periodID string) (domain.Course, bool) {
 	nameNode := findElement(item, func(node *html.Node) bool {
 		return hasClass(node, "qz-tooltipContent-title")
@@ -141,13 +230,11 @@ func parseUndergraduateCourseItem(item *html.Node, periodID string) (domain.Cour
 		location = strings.TrimSpace(details["note"])
 	}
 	selectionID := strings.TrimSpace(details["selection_id"])
-	courseCode := selectionID
-	if courseCode == "" {
-		courseCode = strings.TrimSpace(details["course_code"])
-	}
+	courseCode := strings.TrimSpace(details["course_code"])
 	course := domain.Course{
 		PeriodID:     periodID,
 		CourseCode:   courseCode,
+		ClassNum:     selectionID,
 		Name:         name,
 		Teacher:      strings.TrimSpace(details["teacher"]),
 		Campus:       strings.TrimSpace(details["campus"]),
@@ -385,6 +472,7 @@ func undergraduateCoursePlacementKey(course domain.Course) string {
 		course.ID,
 		course.PeriodID,
 		course.CourseCode,
+		course.ClassNum,
 		course.Name,
 		course.Teacher,
 		course.Campus,
@@ -405,6 +493,7 @@ func undergraduateCourseIdentityKey(course domain.Course) string {
 	values := []string{
 		course.PeriodID,
 		course.CourseCode,
+		course.ClassNum,
 		course.Name,
 		course.Teacher,
 		course.Campus,
@@ -503,6 +592,7 @@ func derivedUndergraduateCourseID(course domain.Course) string {
 	value := strings.Join([]string{
 		course.PeriodID,
 		course.CourseCode,
+		course.ClassNum,
 		course.Name,
 		course.Teacher,
 		course.Campus,

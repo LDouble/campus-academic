@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	operationCourses    = "courses"
-	operationGrades     = "grades"
-	operationExams      = "exams"
-	operationSelections = "selections"
+	operationCourses                 = "courses"
+	operationGrades                  = "grades"
+	operationExams                   = "exams"
+	operationSelections              = "selections"
+	operationCourseSelectionSchedule = "course_selection_schedule"
 
 	staleFallbackDeadline    = "deadline"
 	staleFallbackUnavailable = "unavailable"
@@ -185,6 +186,16 @@ func (c *Coordinator) ListCoursesWithCache(
 			return c.next.ListCourses(callContext, student, credential, periodID)
 		},
 	)
+}
+
+func (c *Coordinator) GetCourseSelectionSchedule(ctx context.Context, student application.StudentReference, credential application.Credential, periodID string) (domain.CourseSchedule, error) {
+	scheduleProvider, ok := c.next.(interface {
+		GetCourseSelectionSchedule(context.Context, application.StudentReference, application.Credential, string) (domain.CourseSchedule, error)
+	})
+	if !ok {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	return scheduleProvider.GetCourseSelectionSchedule(ctx, student, credential, periodID)
 }
 
 // ListGrades returns cached or coalesced released grades.

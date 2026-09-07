@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -85,15 +86,18 @@ type OUCConfig struct {
 	SessionTTLSeconds int `json:"session_ttl_seconds,omitempty"`
 	// A zero scoped TTL or validation window means no override: use its
 	// documented default. Non-zero values must pass validateOUC bounds.
-	SSOSessionTTLSeconds                  int         `json:"sso_session_ttl_seconds,omitempty"`
-	UndergraduateSessionTTLSeconds        int         `json:"undergraduate_session_ttl_seconds,omitempty"`
-	GraduateSessionTTLSeconds             int         `json:"graduate_session_ttl_seconds,omitempty"`
-	UndergraduateSessionProbePath         string      `json:"undergraduate_session_probe_path,omitempty"`
-	UndergraduateSessionValidationSeconds int         `json:"undergraduate_session_validation_seconds,omitempty"`
-	MaxResponseBytes                      int64       `json:"max_response_bytes"`
-	UserAgent                             string      `json:"user_agent"`
-	Undergraduate                         EndpointSet `json:"undergraduate"`
-	Graduate                              EndpointSet `json:"graduate"`
+	SSOSessionTTLSeconds                  int    `json:"sso_session_ttl_seconds,omitempty"`
+	UndergraduateSessionTTLSeconds        int    `json:"undergraduate_session_ttl_seconds,omitempty"`
+	GraduateSessionTTLSeconds             int    `json:"graduate_session_ttl_seconds,omitempty"`
+	UndergraduateSessionProbePath         string `json:"undergraduate_session_probe_path,omitempty"`
+	UndergraduateSessionValidationSeconds int    `json:"undergraduate_session_validation_seconds,omitempty"`
+	MaxResponseBytes                      int64  `json:"max_response_bytes"`
+	UserAgent                             string `json:"user_agent"`
+	// IndexSelectionSessionID is the configuration-owned selection batch ID
+	// required by the undergraduate selection schedule entry page.
+	IndexSelectionSessionID string      `json:"index_selection_session_id,omitempty"`
+	Undergraduate           EndpointSet `json:"undergraduate"`
+	Graduate                EndpointSet `json:"graduate"`
 }
 
 // RequestTimeout returns the validated request timeout.
@@ -371,6 +375,9 @@ func validateOUC(config OUCConfig) error {
 	}
 	if config.MaxResponseBytes < 64*1024 || config.MaxResponseBytes > 8*1024*1024 {
 		return fmt.Errorf("academic_provider.ouc max_response_bytes is outside the safe range")
+	}
+	if value := strings.TrimSpace(config.IndexSelectionSessionID); value != "" && !regexp.MustCompile(`^[A-Za-z0-9_-]{1,256}$`).MatchString(value) {
+		return fmt.Errorf("academic_provider.ouc index_selection_session_id is invalid")
 	}
 	if err := validateURL(config.SSOLoginURL, "id.ouc.edu.cn"); err != nil {
 		return fmt.Errorf("invalid sso_login_url: %w", err)

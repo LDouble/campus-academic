@@ -133,6 +133,7 @@ type Course struct {
 	ID           string
 	PeriodID     string
 	CourseCode   string
+	ClassNum     string
 	Name         string
 	Teacher      string
 	Campus       string

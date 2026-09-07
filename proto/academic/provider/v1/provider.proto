@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 service AcademicProviderService {
   rpc VerifyCredential(VerifyCredentialRequest) returns (VerifyCredentialResponse);
   rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+  rpc GetCourseSelectionSchedule(GetCourseSelectionScheduleRequest) returns (GetCourseSelectionScheduleResponse);
   rpc ListGrades(ListGradesRequest) returns (ListGradesResponse);
   rpc ListExams(ListExamsRequest) returns (ListExamsResponse);
   rpc ListCourseSelections(ListCourseSelectionsRequest) returns (ListCourseSelectionsResponse);
@@ -75,6 +76,21 @@ message Course {
   int32 end_section = 10;
   repeated int32 weeks = 11;
   string note = 12;
+  // ClassNum is the school course-selection number. It is distinct from the
+  // course code and is used by clients to reconcile simulated selections.
+  string class_num = 13;
+}
+
+message GetCourseSelectionScheduleRequest {
+  StudentReference student = 1;
+  Credential credential = 2;
+  string period_id = 3;
+}
+
+message GetCourseSelectionScheduleResponse {
+  repeated Course courses = 1;
+  CacheMetadata cache = 2;
+  string schedule_note = 3;
 }
 
 message ListGradesRequest {

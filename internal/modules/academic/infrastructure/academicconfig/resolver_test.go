@@ -91,6 +91,15 @@ func TestResolverValidatesDynamicConfig(t *testing.T) {
 	}
 }
 
+func TestValidateOUCRejectsUnsafeSelectionSessionID(t *testing.T) {
+	t.Parallel()
+	config := validOUCConfig()
+	config.IndexSelectionSessionID = "bad value"
+	if err := validateOUC(config); err == nil || !strings.Contains(err.Error(), "index_selection_session_id") {
+		t.Fatalf("validateOUC() error=%v", err)
+	}
+}
+
 func TestResolverRejectsDowngradeAndProductionMock(t *testing.T) {
 	t.Parallel()
 	if _, err := NewResolver(

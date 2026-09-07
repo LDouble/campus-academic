@@ -234,6 +234,7 @@ type fakeOUCServer struct {
 	slowQuery                   atomic.Bool
 	malformedQuery              atomic.Bool
 	malformedCatalog            atomic.Int32
+	selectionScheduleEntered    atomic.Bool
 	failSSO                     atomic.Bool
 	requireSSOCookieForService  atomic.Bool
 	queryHitsMu                 sync.Mutex
@@ -692,6 +693,25 @@ func (s *fakeOUCServer) handleAcademic(
 		s.writeString(writer, `{"unexpected":true}`)
 		return
 	}
+	if request.URL.Path == "/jsxsd/xsxk/newXsxkzx" {
+		if request.URL.Query().Get("jx0502zbid") != "selection-session-test" || request.URL.Query().Get("isallsc") != "" {
+			http.Error(writer, "invalid selection entry", http.StatusBadRequest)
+			return
+		}
+		s.selectionScheduleEntered.Store(true)
+		writer.Header().Set("Content-Type", "text/html")
+		s.writeString(writer, `<html>selection context entered</html>`)
+		return
+	}
+	if request.URL.Path == "/jsxsd/xsxk/xsxk_tzsm" {
+		if !s.selectionScheduleEntered.Load() {
+			http.Error(writer, "selection context required", http.StatusBadRequest)
+			return
+		}
+		writer.Header().Set("Content-Type", "text/html")
+		s.writeString(writer, `<table id="tbData"><thead><tr><th><div>选课号</div></th><th><div>课程号</div></th><th><div>课程名称</div></th><th><div>上课教师</div></th><th><div>上课时间</div></th></tr></thead><tbody><tr><td>SELECT-001</td><td>OUC1001</td><td>已选课程</td><td>测试教师</td><td>1-8周 星期一 1-2节;1-8周 星期三 3-4节</td></tr></tbody></table>`)
+		return
+	}
 	if strings.HasSuffix(request.URL.Path, "/graduate/empty-courses") {
 		writer.Header().Set("Content-Type", "text/html")
 		s.writeString(writer, `<table class="table table-course"><tr><th colspan="2">时间</th><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr><tr><td>上午</td><td>第1节</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>`)
@@ -974,6 +994,22 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 			fake.assertNoContractErrors(t)
 		})
 	}
+}
+
+func TestOUCProviderCourseSelectionScheduleEntersSelectionContextBeforeReadingTable(t *testing.T) {
+	fake := newFakeOUCServer(t, false, map[string]bool{verificationapp.EducationUndergraduate: true})
+	provider := newIntegrationProvider(t, fake)
+	student := application.StudentReference{UserID: 7, StudentNo: integrationStudentNo, Provider: verificationapp.ProviderOUC, EducationLevel: verificationapp.EducationUndergraduate}
+	credential := application.Credential{StudentNo: integrationStudentNo, Password: integrationPassword}
+	schedule, err := provider.GetCourseSelectionSchedule(context.Background(), student, credential, "2026-2027-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schedule.Courses) != 2 || schedule.Courses[0].ClassNum != "SELECT-001" || schedule.Courses[1].ClassNum != "SELECT-001" {
+		t.Fatalf("schedule=%+v", schedule)
+	}
+	fake.assertQueryHit(t, verificationapp.EducationUndergraduate, "/jsxsd/xsxk/newXsxkzx")
+	fake.assertQueryHit(t, verificationapp.EducationUndergraduate, "/jsxsd/xsxk/xsxk_tzsm")
 }
 
 func TestOUCProviderGraduateCoursesFallsBackToSelectionHistoryWhenGridIsEmpty(t *testing.T) {
@@ -2478,16 +2514,17 @@ func integrationOUCConfig() academicconfig.OUCConfig {
 	graduate.Periods.PeriodParameter = ""
 	graduate.Selections.PeriodParameter = ""
 	return academicconfig.OUCConfig{
-		Version:           1,
-		SSOLoginURL:       "https://id.ouc.edu.cn/sso/login",
-		PortalServiceURL:  "https://my.ouc.edu.cn/manage/common/cas_login/2?redirect=https%3A%2F%2Fmy.ouc.edu.cn%2Ffrontend%2Fuser%2Finfo",
-		PortalNoRedirect:  true,
-		RequestTimeoutMS:  5000,
-		SessionTTLSeconds: 900,
-		MaxResponseBytes:  1 << 20,
-		UserAgent:         "Campus-OUC-Integration-Test/1.0",
-		Undergraduate:     undergraduate,
-		Graduate:          graduate,
+		Version:                 1,
+		SSOLoginURL:             "https://id.ouc.edu.cn/sso/login",
+		PortalServiceURL:        "https://my.ouc.edu.cn/manage/common/cas_login/2?redirect=https%3A%2F%2Fmy.ouc.edu.cn%2Ffrontend%2Fuser%2Finfo",
+		PortalNoRedirect:        true,
+		RequestTimeoutMS:        5000,
+		SessionTTLSeconds:       900,
+		MaxResponseBytes:        1 << 20,
+		UserAgent:               "Campus-OUC-Integration-Test/1.0",
+		IndexSelectionSessionID: "selection-session-test",
+		Undergraduate:           undergraduate,
+		Graduate:                graduate,
 	}
 }
 

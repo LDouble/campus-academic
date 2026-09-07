@@ -69,6 +69,20 @@ func (r *Router) ListCourses(
 	return provider.ListCourses(ctx, student, credential, periodID)
 }
 
+func (r *Router) GetCourseSelectionSchedule(ctx context.Context, student application.StudentReference, credential application.Credential, periodID string) (domain.CourseSchedule, error) {
+	provider := r.queryProvider()
+	if provider == nil {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	scheduleProvider, ok := provider.(interface {
+		GetCourseSelectionSchedule(context.Context, application.StudentReference, application.Credential, string) (domain.CourseSchedule, error)
+	})
+	if !ok {
+		return domain.CourseSchedule{}, application.ErrProviderUnavailable
+	}
+	return scheduleProvider.GetCourseSelectionSchedule(ctx, student, credential, periodID)
+}
+
 // ListCoursesWithCache routes a timetable query and preserves result-cache
 // provenance when the selected provider supports it.
 func (r *Router) ListCoursesWithCache(

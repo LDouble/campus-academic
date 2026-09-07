@@ -3,6 +3,7 @@ package ouc
 import (
 	"fmt"
 
+	"github.com/LDouble/campus-academic/internal/modules/academic/application"
 	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 	verificationapp "github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
@@ -15,6 +16,7 @@ type systemAdapter interface {
 	Endpoint(academicconfig.OUCConfig) academicconfig.EndpointSet
 	ParsePeriods([]byte, string) ([]domain.Period, error)
 	ParseCourses([]byte, string, string) (domain.CourseSchedule, error)
+	ParseCourseSelectionSchedule([]byte, string, string) (domain.CourseSchedule, error)
 	ParseGrades([]byte, string, string) ([]domain.Grade, error)
 	ParseExams([]byte, string, string) ([]domain.Exam, error)
 	ParseSelections([]byte, string, string) ([]domain.CourseSelection, error)
@@ -40,6 +42,10 @@ func (undergraduateAdapter) ParseCourses(
 	periodID string,
 ) (domain.CourseSchedule, error) {
 	return parseUndergraduateCourses(body, encoding, periodID)
+}
+
+func (undergraduateAdapter) ParseCourseSelectionSchedule(body []byte, encoding string, periodID string) (domain.CourseSchedule, error) {
+	return parseUndergraduateCourseSelectionSchedule(body, encoding, periodID)
 }
 
 func (undergraduateAdapter) ParseGrades(
@@ -87,6 +93,10 @@ func (graduateAdapter) ParseCourses(
 ) (domain.CourseSchedule, error) {
 	courses, err := parseGraduateCourses(body, encoding, periodID)
 	return domain.CourseSchedule{Courses: courses}, err
+}
+
+func (graduateAdapter) ParseCourseSelectionSchedule([]byte, string, string) (domain.CourseSchedule, error) {
+	return domain.CourseSchedule{}, application.ErrProviderUnavailable
 }
 
 func (graduateAdapter) ParseGrades(
