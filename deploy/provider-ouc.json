@@ -8,6 +8,7 @@
   "session_ttl_seconds": 900,
   "max_response_bytes": 2097152,
   "user_agent": "CampusMiniApp-Academic/1.0",
+  "index_selection_session_id": "",
   "undergraduate": {
     "service_url": "https://jwgl2024.ouc.edu.cn/",
     "periods": {"path": "/jsxsd/xskb/xskb_list.do?viweType=0", "request_method": "GET", "request_encoding": "query", "period_parameter": "", "response_encoding": "html"},

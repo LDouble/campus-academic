@@ -95,6 +95,10 @@ func (p *MockProvider) ListCourses(
 	return domain.CourseSchedule{Courses: result, ScheduleNote: scheduleNote}, nil
 }
 
+func (p *MockProvider) GetCourseSelectionSchedule(ctx context.Context, student application.StudentReference, credential application.Credential, periodID string) (domain.CourseSchedule, error) {
+	return p.ListCourses(ctx, student, credential, periodID)
+}
+
 // ListGrades returns mock released grades for one period, or all periods when periodID is empty.
 func (p *MockProvider) ListGrades(
 	ctx context.Context,
