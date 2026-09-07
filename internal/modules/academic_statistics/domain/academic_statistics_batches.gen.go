@@ -17,6 +17,8 @@ type AcademicStatisticsBatch struct {
 	RuleVersion         string     `gorm:"column:rule_version;not null" json:"rule_version"`
 	SourceRowCount      int64      `gorm:"column:source_row_count;not null" json:"source_row_count"`
 	CourseStatCount     int64      `gorm:"column:course_stat_count;not null" json:"course_stat_count"`
+	CoursePassRateCount int64      `gorm:"column:course_pass_rate_count;not null" json:"course_pass_rate_count"`
+	MinimumSampleSize   int64      `gorm:"column:minimum_sample_size;not null" json:"minimum_sample_size"`
 	InstructorStatCount int64      `gorm:"column:instructor_stat_count;not null" json:"instructor_stat_count"`
 	ErrorSummary        *string    `gorm:"column:error_summary" json:"error_summary"`
 	StartedAt           time.Time  `gorm:"column:started_at;not null" json:"started_at"`

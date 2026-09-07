@@ -57,6 +57,8 @@ func (store *Store) StartBatch(
 		RuleVersion:         domain.RuleVersion,
 		SourceRowCount:      0,
 		CourseStatCount:     0,
+		CoursePassRateCount: 0,
+		MinimumSampleSize:   store.minimumSampleSize,
 		InstructorStatCount: 0,
 		StartedAt:           startedAt,
 	}
@@ -133,6 +135,8 @@ func resetBatch(
 	target.RuleVersion = source.RuleVersion
 	target.SourceRowCount = 0
 	target.CourseStatCount = 0
+	target.CoursePassRateCount = 0
+	target.MinimumSampleSize = source.MinimumSampleSize
 	target.InstructorStatCount = 0
 	target.ErrorSummary = nil
 	target.StartedAt = source.StartedAt
@@ -196,6 +200,8 @@ func (store *Store) PublishBatch(
 ) error {
 	courses := courseEntities(batch.ID, snapshot.Courses)
 	instructors := instructorEntities(batch.ID, snapshot.Instructors)
+	var coursePassRates []*domain.AcademicCoursePassRateStatistic
+	var coursePassRateCount int64
 	effectiveCutoff := snapshot.SourceCutoffAt
 	err := store.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		carriedCutoff, err := store.suppressSmallPublicationDeltas(
@@ -210,6 +216,14 @@ func (store *Store) PublishBatch(
 		if carriedCutoff != nil && carriedCutoff.Before(effectiveCutoff) {
 			effectiveCutoff = *carriedCutoff
 		}
+		coursePassRates = coursePassRateEntities(
+			batch.ID,
+			courses,
+		)
+		coursePassRateCount = countCoursePassRates(
+			coursePassRates,
+			store.minimumSampleSize,
+		)
 		q := platformquery.Use(tx)
 		if err := q.AcademicCourseTermStatistic.WithContext(ctx).
 			CreateInBatches(courses, 500); err != nil {
@@ -219,6 +233,12 @@ func (store *Store) PublishBatch(
 			if err := q.AcademicInstructorCourseTermStatistic.WithContext(ctx).
 				CreateInBatches(instructors, 500); err != nil {
 				return fmt.Errorf("insert academic instructor statistics: %w", err)
+			}
+		}
+		if len(coursePassRates) > 0 {
+			if err := tx.WithContext(ctx).
+				CreateInBatches(coursePassRates, 500).Error; err != nil {
+				return fmt.Errorf("insert academic course pass-rate projections: %w", err)
 			}
 		}
 		batches := q.AcademicStatisticsBatch
@@ -232,6 +252,8 @@ func (store *Store) PublishBatch(
 				batches.SourceCutoffAt.Value(effectiveCutoff),
 				batches.SourceRowCount.Value(snapshot.SourceRowCount),
 				batches.CourseStatCount.Value(int64(len(courses))),
+				batches.CoursePassRateCount.Value(coursePassRateCount),
+				batches.MinimumSampleSize.Value(store.minimumSampleSize),
 				batches.InstructorStatCount.Value(int64(len(instructors))),
 				batches.ErrorSummary.Null(),
 				batches.FinishedAt.Value(finishedAt),
@@ -255,6 +277,8 @@ func (store *Store) PublishBatch(
 	batch.SourceCutoffAt = effectiveCutoff
 	batch.SourceRowCount = snapshot.SourceRowCount
 	batch.CourseStatCount = int64(len(courses))
+	batch.CoursePassRateCount = coursePassRateCount
+	batch.MinimumSampleSize = store.minimumSampleSize
 	batch.InstructorStatCount = int64(len(instructors))
 	batch.ErrorSummary = nil
 	batch.FinishedAt = &finishedAt
@@ -715,12 +739,33 @@ func (store *Store) ListCourses(
 	if err != nil {
 		return domain.PublishedMetadata{}, nil, 0, err
 	}
-	filtered := store.filteredCourses(ctx, batch.ID, search)
+	if search.TermCode == "" {
+		return store.listCoursePassRateProjections(
+			ctx, batch, metadata, search, minimumSampleSize, page, pageSize,
+		)
+	}
+	return store.listCoursesByTerm(
+		ctx, batch.ID, metadata, search, minimumSampleSize, page, pageSize,
+	)
+}
+
+// listCoursesByTerm retains the exact historical semantics for the optional
+// term filter. The normal all-term list is served by the publication-time
+// projection above instead.
+func (store *Store) listCoursesByTerm(
+	ctx context.Context,
+	batchID uint64,
+	metadata domain.PublishedMetadata,
+	search domain.Search,
+	minimumSampleSize int64,
+	page, pageSize int,
+) (domain.PublishedMetadata, []domain.CoursePassRate, int64, error) {
+	filtered := store.filteredCourses(ctx, batchID, search)
 	grouped := courseGroupedSQL(minimumSampleSize)
 	groupedArgs := groupedQueryArgs(filtered)
 	countSQL := "SELECT COUNT(*) FROM (" + grouped + ") AS published_courses"
 	var total int64
-	if err = store.db.WithContext(ctx).
+	if err := store.db.WithContext(ctx).
 		Raw(countSQL, groupedArgs...).
 		Scan(&total).Error; err != nil {
 		return domain.PublishedMetadata{}, nil, 0,
@@ -734,7 +779,7 @@ func (store *Store) ListCourses(
 		pageSize,
 		(page-1)*pageSize,
 	)
-	if err = store.db.WithContext(ctx).
+	if err := store.db.WithContext(ctx).
 		Raw(listSQL, listArgs...).
 		Scan(&rows).Error; err != nil {
 		return domain.PublishedMetadata{}, nil, 0,
@@ -745,6 +790,66 @@ func (store *Store) ListCourses(
 		values = append(values, row.domainValue())
 	}
 	return metadata, values, total, nil
+}
+
+func (store *Store) listCoursePassRateProjections(
+	ctx context.Context,
+	batch *domain.AcademicStatisticsBatch,
+	metadata domain.PublishedMetadata,
+	search domain.Search,
+	minimumSampleSize int64,
+	page, pageSize int,
+) (domain.PublishedMetadata, []domain.CoursePassRate, int64, error) {
+	query := store.db.WithContext(ctx).
+		Model(&domain.AcademicCoursePassRateStatistic{}).
+		Where("batch_id = ? AND valid_count >= ?", batch.ID, minimumSampleSize)
+	if search.CourseCode != "" {
+		query = query.Where("course_code = ?", search.CourseCode)
+	}
+	if search.EducationLevel != "" {
+		query = query.Where("education_level = ?", search.EducationLevel)
+	}
+	if search.Keyword != "" {
+		query = query.Where(
+			"course_code LIKE ? OR course_name LIKE ?",
+			search.Keyword+"%",
+			"%"+search.Keyword+"%",
+		)
+	}
+
+	var total int64
+	if courseProjectionUsesCachedCount(batch, search, minimumSampleSize) {
+		total = batch.CoursePassRateCount
+	} else if err := query.Count(&total).Error; err != nil {
+		return domain.PublishedMetadata{}, nil, 0,
+			fmt.Errorf("count academic course pass-rate projections: %w", err)
+	}
+
+	rows := []domain.AcademicCoursePassRateStatistic{}
+	if err := query.Order("valid_count DESC, course_code ASC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&rows).Error; err != nil {
+		return domain.PublishedMetadata{}, nil, 0,
+			fmt.Errorf("list academic course pass-rate projections: %w", err)
+	}
+	values := make([]domain.CoursePassRate, 0, len(rows))
+	for _, row := range rows {
+		values = append(values, courseProjectionFromEntity(row).domainValue())
+	}
+	return metadata, values, total, nil
+}
+
+func courseProjectionUsesCachedCount(
+	batch *domain.AcademicStatisticsBatch,
+	search domain.Search,
+	minimumSampleSize int64,
+) bool {
+	return batch.MinimumSampleSize > 0 &&
+		batch.MinimumSampleSize == minimumSampleSize &&
+		search.Keyword == "" &&
+		search.CourseCode == "" &&
+		search.EducationLevel == ""
 }
 
 // ListInstructors returns teacher-course projections from the latest batch.
@@ -963,6 +1068,65 @@ func courseEntities(
 	return rows
 }
 
+func coursePassRateEntities(
+	batchID uint64,
+	values []*domain.AcademicCourseTermStatistic,
+) []*domain.AcademicCoursePassRateStatistic {
+	type key struct {
+		educationLevel string
+		courseCode     string
+	}
+	grouped := make(map[key]*domain.AcademicCoursePassRateStatistic)
+	for _, value := range values {
+		key := key{value.EducationLevel, value.CourseCode}
+		row := grouped[key]
+		if row == nil {
+			row = &domain.AcademicCoursePassRateStatistic{
+				BatchId: batchID, EducationLevel: value.EducationLevel,
+				CourseCode: value.CourseCode, CourseName: value.CourseName,
+			}
+			grouped[key] = row
+		} else if value.CourseName > row.CourseName {
+			// Keep the same deterministic value as SQL MAX(course_name).
+			row.CourseName = value.CourseName
+		}
+		row.TermCount++
+		row.ValidCount += value.ValidCount
+		row.PassCount += value.PassCount
+		row.FailCount += value.FailCount
+		row.NumericScoreCount += value.NumericScoreCount
+		row.NumericScoreSumX100 += value.NumericScoreSumX100
+		row.NumericFailCount += value.NumericFailCount
+		row.Score6069Count += value.Score6069Count
+		row.Score7079Count += value.Score7079Count
+		row.Score8089Count += value.Score8089Count
+		row.Score90100Count += value.Score90100Count
+		row.LevelExcellentCount += value.LevelExcellentCount
+		row.LevelGoodCount += value.LevelGoodCount
+		row.LevelMediumCount += value.LevelMediumCount
+		row.LevelPassCount += value.LevelPassCount
+		row.LevelFailCount += value.LevelFailCount
+	}
+	rows := make([]*domain.AcademicCoursePassRateStatistic, 0, len(grouped))
+	for _, row := range grouped {
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func countCoursePassRates(
+	rows []*domain.AcademicCoursePassRateStatistic,
+	minimumSampleSize int64,
+) int64 {
+	var count int64
+	for _, row := range rows {
+		if row.ValidCount >= minimumSampleSize {
+			count++
+		}
+	}
+	return count
+}
+
 func instructorEntities(
 	batchID uint64,
 	values []domain.InstructorCourseTermAggregate,
@@ -1147,6 +1311,24 @@ type courseProjection struct {
 	LevelMediumCount    int64  `gorm:"column:level_medium_count"`
 	LevelPassCount      int64  `gorm:"column:level_pass_count"`
 	LevelFailCount      int64  `gorm:"column:level_fail_count"`
+}
+
+func courseProjectionFromEntity(
+	value domain.AcademicCoursePassRateStatistic,
+) courseProjection {
+	return courseProjection{
+		EducationLevel: value.EducationLevel, CourseCode: value.CourseCode,
+		CourseName: value.CourseName, TermCount: value.TermCount,
+		ValidCount: value.ValidCount, PassCount: value.PassCount,
+		FailCount: value.FailCount, NumericScoreCount: value.NumericScoreCount,
+		NumericScoreSumX100: value.NumericScoreSumX100,
+		NumericFailCount:    value.NumericFailCount,
+		Score6069Count:      value.Score6069Count, Score7079Count: value.Score7079Count,
+		Score8089Count: value.Score8089Count, Score90100Count: value.Score90100Count,
+		LevelExcellentCount: value.LevelExcellentCount,
+		LevelGoodCount:      value.LevelGoodCount, LevelMediumCount: value.LevelMediumCount,
+		LevelPassCount: value.LevelPassCount, LevelFailCount: value.LevelFailCount,
+	}
 }
 
 func (row courseProjection) domainValue() domain.CoursePassRate {

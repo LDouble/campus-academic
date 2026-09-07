@@ -14,6 +14,7 @@ func main() {
 	generator.ApplyBasic(
 		domain.AcademicStatisticsBatch{},
 		domain.AcademicCourseTermStatistic{},
+		domain.AcademicCoursePassRateStatistic{},
 		domain.AcademicInstructorCourseTermStatistic{},
 	)
 	generator.Execute()

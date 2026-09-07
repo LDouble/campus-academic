@@ -38,6 +38,8 @@ func newAcademicStatisticsBatch(db *gorm.DB, opts ...gen.DOOption) academicStati
 	_academicStatisticsBatch.RuleVersion = field.NewString(tableName, "rule_version")
 	_academicStatisticsBatch.SourceRowCount = field.NewInt64(tableName, "source_row_count")
 	_academicStatisticsBatch.CourseStatCount = field.NewInt64(tableName, "course_stat_count")
+	_academicStatisticsBatch.CoursePassRateCount = field.NewInt64(tableName, "course_pass_rate_count")
+	_academicStatisticsBatch.MinimumSampleSize = field.NewInt64(tableName, "minimum_sample_size")
 	_academicStatisticsBatch.InstructorStatCount = field.NewInt64(tableName, "instructor_stat_count")
 	_academicStatisticsBatch.ErrorSummary = field.NewString(tableName, "error_summary")
 	_academicStatisticsBatch.StartedAt = field.NewTime(tableName, "started_at")
@@ -65,6 +67,8 @@ type academicStatisticsBatch struct {
 	RuleVersion         field.String
 	SourceRowCount      field.Int64
 	CourseStatCount     field.Int64
+	CoursePassRateCount field.Int64
+	MinimumSampleSize   field.Int64
 	InstructorStatCount field.Int64
 	ErrorSummary        field.String
 	StartedAt           field.Time
@@ -98,6 +102,8 @@ func (a *academicStatisticsBatch) updateTableName(table string) *academicStatist
 	a.RuleVersion = field.NewString(table, "rule_version")
 	a.SourceRowCount = field.NewInt64(table, "source_row_count")
 	a.CourseStatCount = field.NewInt64(table, "course_stat_count")
+	a.CoursePassRateCount = field.NewInt64(table, "course_pass_rate_count")
+	a.MinimumSampleSize = field.NewInt64(table, "minimum_sample_size")
 	a.InstructorStatCount = field.NewInt64(table, "instructor_stat_count")
 	a.ErrorSummary = field.NewString(table, "error_summary")
 	a.StartedAt = field.NewTime(table, "started_at")
@@ -133,7 +139,7 @@ func (a *academicStatisticsBatch) GetFieldByName(fieldName string) (field.OrderE
 }
 
 func (a *academicStatisticsBatch) fillFieldMap() {
-	a.fieldMap = make(map[string]field.Expr, 17)
+	a.fieldMap = make(map[string]field.Expr, 19)
 	a.fieldMap["id"] = a.ID
 	a.fieldMap["status"] = a.Status
 	a.fieldMap["trigger_type"] = a.TriggerType
@@ -144,6 +150,8 @@ func (a *academicStatisticsBatch) fillFieldMap() {
 	a.fieldMap["rule_version"] = a.RuleVersion
 	a.fieldMap["source_row_count"] = a.SourceRowCount
 	a.fieldMap["course_stat_count"] = a.CourseStatCount
+	a.fieldMap["course_pass_rate_count"] = a.CoursePassRateCount
+	a.fieldMap["minimum_sample_size"] = a.MinimumSampleSize
 	a.fieldMap["instructor_stat_count"] = a.InstructorStatCount
 	a.fieldMap["error_summary"] = a.ErrorSummary
 	a.fieldMap["started_at"] = a.StartedAt
