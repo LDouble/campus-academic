@@ -710,3 +710,15 @@ func TestParseScheduleTimeSupportsOddWeeks(t *testing.T) {
 		t.Fatalf("weeks=%v", weeks)
 	}
 }
+
+func TestParseScheduleTimeSupportsListedAndRangedWeeksWithoutSectionSuffix(t *testing.T) {
+	t.Parallel()
+	weeks, start, end := parseScheduleTime("4,5,6,10-12,13-15周 星期三 5-6")
+	if start != 5 || end != 6 {
+		t.Fatalf("sections=%d-%d", start, end)
+	}
+	want := []int{4, 5, 6, 10, 11, 12, 13, 14, 15}
+	if !equalInts(weeks, want) {
+		t.Fatalf("weeks=%v want=%v", weeks, want)
+	}
+}
