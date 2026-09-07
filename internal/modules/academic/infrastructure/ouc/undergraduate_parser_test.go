@@ -203,6 +203,32 @@ func TestParseUndergraduateCourseSelectionScheduleKeepsEveryMeetingForClassNum(t
 	}
 }
 
+func TestParseUndergraduateCourseSelectionScheduleMatchesOUCPageLayout(t *testing.T) {
+	t.Parallel()
+	body := []byte(`<table class="layui-table" id="tbData"><thead><tr>
+		<th><div>选课号</div></th><th><div>课程编号</div></th><th><div>课程名称</div></th><th><div>学分</div></th><th><div>上课教师</div></th><th><div>上课时间</div></th><th><div>上课地点</div></th><th><div>课表备注</div></th><th><div>上课校区</div></th><th><div>选课状态</div></th>
+	</tr></thead><tbody>
+		<tr><td><div>26209008</div></td><td><div>1109250001</div></td><td><div>工程制图基础[分组03]</div></td><td><div>2</div></td><td><div>姚阳</div></td><td><div>1-17周 星期三 5-6 </div></td><td><div>2703</div></td><td><div>&nbsp;</div></td><td><div>崂山校区</div></td><td><div>选中</div></td></tr>
+		<tr><td><div>26251067</div></td><td><div>071502101329</div></td><td><div>电子信息学科概论</div></td><td><div>1</div></td><td><div>顾肇瑞,郭宗辉</div></td><td><div>1-8周 星期二 5-6 </div></td><td><div>4202</div></td><td><div>&nbsp;</div></td><td><div>崂山校区</div></td><td><div>选中</div></td></tr>
+		<tr><td><div>26251072</div></td><td><div>071502101213</div></td><td><div>高级语言程序设计[分组04]</div></td><td><div>3</div></td><td><div>李林</div></td><td><div>1-16周 星期一 7-8 <br>1-16周 星期二 1-2 </div></td><td><div>4504<br>4504</div></td><td><div>&nbsp;</div></td><td><div>崂山校区</div></td><td><div>选中</div></td></tr>
+		<tr><td><div>26216105</div></td><td><div>008401101055</div></td><td><div>高等数学Ⅱ1[分组01]</div></td><td><div>6</div></td><td><div>高振</div></td><td><div>1-17周 星期一 3-4 <br>1-17周 星期二 3-4 <br>1-17周 星期四 3-4 </div></td><td><div>4202<br>4101<br>6318</div></td><td><div>&nbsp;</div></td><td><div>崂山校区</div></td><td><div>选中</div></td></tr>
+	</tbody></table>`)
+	schedule, err := parseUndergraduateCourseSelectionSchedule(body, "html", "2026-2027-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schedule.Courses) != 7 {
+		t.Fatalf("courses=%+v", schedule.Courses)
+	}
+	first := schedule.Courses[0]
+	if first.ClassNum != "26209008" || first.CourseCode != "1109250001" || first.Name != "工程制图基础[分组03]" || first.Teacher != "姚阳" || first.Campus != "崂山校区" || first.Location != "2703" || first.Weekday != 3 || first.StartSection != 5 || first.EndSection != 6 || len(first.Weeks) != 17 {
+		t.Fatalf("first=%+v", first)
+	}
+	if schedule.Courses[2].Weekday != 1 || schedule.Courses[2].StartSection != 7 || schedule.Courses[2].EndSection != 8 || schedule.Courses[2].Location != "4504" || schedule.Courses[3].Weekday != 2 || schedule.Courses[3].StartSection != 1 || schedule.Courses[3].EndSection != 2 || schedule.Courses[3].Location != "4504" {
+		t.Fatalf("multi-meeting course=%+v/%+v", schedule.Courses[2], schedule.Courses[3])
+	}
+}
+
 func TestParseUndergraduateScheduleFallsBackToTableWeekdayAndMergesWeeks(t *testing.T) {
 	t.Parallel()
 	body := []byte(`

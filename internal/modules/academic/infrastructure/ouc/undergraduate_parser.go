@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	undergraduatePeriodIDPattern = regexp.MustCompile(`^\d{4}-\d{4}-[123]$`)
-	scheduleWeekGroupPattern     = regexp.MustCompile(`(?:(?:单|双)周?\s*)?\d+(?:\s*[-—~～至]\s*\d+)?(?:\s*[,，、]\s*\d+(?:\s*[-—~～至]\s*\d+)?)*\s*周(?:\s*[（(]?\s*(?:单|双)周?\s*[）)]?)?`)
-	scheduleRangePattern         = regexp.MustCompile(`[-—~～至]`)
-	scheduleSectionPattern       = regexp.MustCompile(`(?:第\s*)?(\d+)(?:\s*[-—~～至]\s*(\d+))?\s*节`)
-	scheduleNumberPattern        = regexp.MustCompile(`\d+`)
+	undergraduatePeriodIDPattern  = regexp.MustCompile(`^\d{4}-\d{4}-[123]$`)
+	scheduleWeekGroupPattern      = regexp.MustCompile(`(?:(?:单|双)周?\s*)?\d+(?:\s*[-—~～至]\s*\d+)?(?:\s*[,，、]\s*\d+(?:\s*[-—~～至]\s*\d+)?)*\s*周(?:\s*[（(]?\s*(?:单|双)周?\s*[）)]?)?`)
+	scheduleRangePattern          = regexp.MustCompile(`[-—~～至]`)
+	scheduleSectionPattern        = regexp.MustCompile(`(?:第\s*)?(\d+)(?:\s*[-—~～至]\s*(\d+))?\s*节`)
+	scheduleWeekdaySectionPattern = regexp.MustCompile(`(?:星期[一二三四五六日天七]|周[一二三四五六日天七])\s*(?:第\s*)?(\d+)(?:\s*[-—~～至]\s*(\d+))?\s*节?`)
+	scheduleNumberPattern         = regexp.MustCompile(`\d+`)
 )
 
 func parseUndergraduatePeriods(body []byte, encoding string) ([]domain.Period, error) {
@@ -149,7 +150,7 @@ func parseUndergraduateCourseSelectionSchedule(body []byte, encoding, periodID s
 		values := make(map[string]string, len(headers))
 		for index, cell := range cells {
 			if index < len(headers) {
-				values[headers[index]] = strings.TrimSpace(strings.ReplaceAll(compactText(cell), "\u00a0", ""))
+				values[headers[index]] = selectionCellText(cell)
 			}
 		}
 		name := firstNonEmpty(values, "课程名称", "课程名")
@@ -170,7 +171,7 @@ func parseUndergraduateCourseSelectionSchedule(body []byte, encoding, periodID s
 			} else if index < len(locations) {
 				location = locations[index]
 			}
-			course := domain.Course{PeriodID: periodID, CourseCode: firstNonEmpty(values, "课程号", "课程编号"), ClassNum: firstNonEmpty(values, "选课号", "教学班号"), Name: name, Teacher: firstNonEmpty(values, "上课教师", "任课教师", "教师"), Location: location, Weekday: weekday, StartSection: start, EndSection: end, Weeks: weeks}
+			course := domain.Course{PeriodID: periodID, CourseCode: firstNonEmpty(values, "课程号", "课程编号"), ClassNum: firstNonEmpty(values, "选课号", "教学班号"), Name: name, Teacher: firstNonEmpty(values, "上课教师", "任课教师", "教师"), Campus: firstNonEmpty(values, "上课校区", "校区"), Location: location, Note: firstNonEmpty(values, "课表备注", "备注"), Weekday: weekday, StartSection: start, EndSection: end, Weeks: weeks}
 			course.ID = derivedUndergraduateCourseID(course)
 			courses = append(courses, course)
 		}
@@ -188,9 +189,16 @@ func firstNonEmpty(values map[string]string, keys ...string) string {
 }
 
 func splitSelectionScheduleCell(value string) []string {
-	return strings.FieldsFunc(value, func(character rune) bool {
+	parts := strings.FieldsFunc(value, func(character rune) bool {
 		return character == ';' || character == '；' || character == '\n' || character == '\r'
 	})
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 func parseUndergraduateCourseItem(item *html.Node, periodID string) (domain.Course, bool) {
@@ -338,9 +346,21 @@ func addScheduleWeek(weekSet map[int]struct{}, week, parity int) {
 
 func parseScheduleSections(value string) (int, int) {
 	match := scheduleSectionPattern.FindStringSubmatch(value)
+	if len(match) >= 2 {
+		return sectionRangeFromMatch(match)
+	}
+	// The selected-course page renders a compact form such as
+	// "1-17周 星期三 5-6", without the trailing "节" suffix. Restrict this
+	// fallback to the digits immediately following a weekday marker so the
+	// week range at the beginning of the value is never mistaken for sections.
+	match = scheduleWeekdaySectionPattern.FindStringSubmatch(value)
 	if len(match) < 2 {
 		return 0, 0
 	}
+	return sectionRangeFromMatch(match)
+}
+
+func sectionRangeFromMatch(match []string) (int, int) {
 	start, startErr := strconv.Atoi(match[1])
 	if startErr != nil || start <= 0 {
 		return 0, 0
@@ -759,4 +779,29 @@ func positiveAttributeInt(node *html.Node, name string, fallback int) int {
 
 func compactText(node *html.Node) string {
 	return strings.Join(strings.Fields(nodeText(node)), " ")
+}
+
+// selectionCellText keeps line breaks represented by <br>. The selected-course
+// page uses those breaks to align multiple meeting times with multiple rooms;
+// compactText intentionally discards them for the rest of the portal parser.
+func selectionCellText(node *html.Node) string {
+	lines := strings.Split(nodeTextWithBreaks(node), "\n")
+	for index, line := range lines {
+		lines[index] = strings.Join(strings.Fields(strings.ReplaceAll(line, "\u00a0", " ")), " ")
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func nodeTextWithBreaks(node *html.Node) string {
+	if node.Type == html.TextNode {
+		return node.Data
+	}
+	if node.Type == html.ElementNode && node.Data == "br" {
+		return "\n"
+	}
+	var builder strings.Builder
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		builder.WriteString(nodeTextWithBreaks(child))
+	}
+	return builder.String()
 }
