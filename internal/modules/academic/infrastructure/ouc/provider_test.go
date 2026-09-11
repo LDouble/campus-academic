@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 	verificationapp "github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
 )
@@ -250,6 +252,85 @@ func TestAcademicRequestSupportsDynamicTransport(t *testing.T) {
 				t.Fatalf("body=%q contentType=%q", data, contentType)
 			}
 		})
+	}
+}
+
+func TestUndergraduateSelectionFailureRequestOverridesConfiguredQuery(t *testing.T) {
+	t.Parallel()
+	endpoint := academicconfig.OperationEndpoint{
+		Path:            "/jsxsd/xkgl/loadXsxkjgList?lx=xkrz&type=list&pageNum=1&pageSize=200",
+		RequestMethod:   http.MethodGet,
+		RequestEncoding: "query",
+		PeriodParameter: "xnxqid",
+	}
+	target, body, contentType, err := academicRequestWithValues(
+		"https://jwgl2024.ouc.edu.cn/",
+		endpoint,
+		"2026-2027-2",
+		undergraduateSelectionFailureRequestValues(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contentType != "" {
+		t.Fatalf("content type=%q want empty", contentType)
+	}
+	payload, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) != 0 {
+		t.Fatalf("payload=%q want empty", payload)
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	want := map[string]string{
+		"lx":              "tkrz",
+		"type":            "list",
+		"cxsj":            "tkjg",
+		"pageNum":         "1",
+		"pageSize":        "20",
+		"xnxqid":          "2026-2027-2",
+		"sf_request_type": "ajax",
+	}
+	for key, value := range want {
+		if query.Get(key) != value {
+			t.Fatalf("query[%q]=%q want %q; full query=%q", key, query.Get(key), value, parsed.RawQuery)
+		}
+	}
+}
+
+func TestMergeCourseSelectionsPreservesPrimaryAndRemovesExactDuplicates(t *testing.T) {
+	t.Parallel()
+	primary := []domain.CourseSelection{
+		{ID: "selected-1", CourseName: "已选课程", Status: domain.CourseSelectionSelected},
+		{ID: "shared-1", CourseName: "重新选中的课程", Status: domain.CourseSelectionSelected},
+	}
+	supplement := []domain.CourseSelection{
+		{ID: "shared-1", CourseName: "历史退选记录", Status: domain.CourseSelectionFailed},
+		{ID: "failed-1", CourseName: "抽签落选课程", Status: domain.CourseSelectionFailed},
+		{ID: "failed-1", CourseName: "抽签落选课程", Status: domain.CourseSelectionFailed},
+		{ID: "failed-1", CourseName: "个人退选课程", Status: domain.CourseSelectionFailed},
+	}
+	merged := mergeCourseSelections(primary, supplement)
+	if len(merged) != 5 {
+		t.Fatalf("merged=%+v want 5 records", merged)
+	}
+	if merged[0].ID != "selected-1" || merged[1].ID != "shared-1" ||
+		merged[2].ID != "shared-1" || merged[3].ID != "failed-1" || merged[4].ID != "failed-1" {
+		t.Fatalf("merged order/ids=%+v", merged)
+	}
+	if merged[1].Status != domain.CourseSelectionSelected || merged[1].CourseName != "重新选中的课程" {
+		t.Fatalf("primary record was replaced=%+v", merged[1])
+	}
+	if merged[2].Status != domain.CourseSelectionFailed || merged[2].CourseName != "历史退选记录" {
+		t.Fatalf("distinct same-ID history was removed=%+v", merged[2])
+	}
+	if merged[3].CourseName != "抽签落选课程" || merged[4].CourseName != "个人退选课程" {
+		t.Fatalf("distinct same-ID supplement records=%+v", merged[2:])
 	}
 }
 

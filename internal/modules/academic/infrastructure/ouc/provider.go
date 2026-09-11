@@ -355,7 +355,38 @@ func (p *Provider) ListCourseSelections(
 	}
 	items, parseErr := response.adapter.ParseSelections(response.body, response.encoding, periodID)
 	traceQueryParse(response, parseErr, len(items))
-	return items, parseErr
+	if parseErr != nil || student.EducationLevel != verificationapp.EducationUndergraduate {
+		return items, parseErr
+	}
+
+	supplementResponse, supplementErr := p.queryWithOperationAndValues(
+		ctx,
+		student,
+		credential,
+		querySelections,
+		periodID,
+		nil,
+		undergraduateSelectionFailureRequestValues(),
+	)
+	if supplementErr != nil {
+		if ctx.Err() != nil {
+			return items, supplementErr
+		}
+		// The existing selection result is still useful when the historical
+		// withdrawal endpoint is temporarily unavailable. Keep this request
+		// best-effort so the supplement cannot take down the original flow.
+		return items, nil
+	}
+	supplementItems, supplementParseErr := supplementResponse.adapter.ParseSelections(
+		supplementResponse.body,
+		supplementResponse.encoding,
+		periodID,
+	)
+	traceQueryParse(supplementResponse, supplementParseErr, len(supplementItems))
+	if supplementParseErr != nil {
+		return items, nil
+	}
+	return mergeCourseSelections(items, supplementItems), nil
 }
 
 const maxCourseCatalogPage = 500
@@ -642,7 +673,7 @@ func (p *Provider) query(
 	kind queryKind,
 	periodID string,
 ) (queryResponse, error) {
-	return p.queryWithOperation(ctx, student, credential, kind, periodID, nil)
+	return p.queryWithOperationAndValues(ctx, student, credential, kind, periodID, nil, nil)
 }
 
 func (p *Provider) queryWithOperation(
@@ -652,6 +683,26 @@ func (p *Provider) queryWithOperation(
 	kind queryKind,
 	periodID string,
 	operationOverride *academicconfig.OperationEndpoint,
+) (queryResponse, error) {
+	return p.queryWithOperationAndValues(
+		ctx,
+		student,
+		credential,
+		kind,
+		periodID,
+		operationOverride,
+		nil,
+	)
+}
+
+func (p *Provider) queryWithOperationAndValues(
+	ctx context.Context,
+	student application.StudentReference,
+	credential application.Credential,
+	kind queryKind,
+	periodID string,
+	operationOverride *academicconfig.OperationEndpoint,
+	requestValues url.Values,
 ) (queryResponse, error) {
 	config, err := p.oucConfig()
 	if err != nil {
@@ -682,10 +733,11 @@ func (p *Provider) queryWithOperation(
 		trace.failure("query.finish", "operation_unconfigured", "configuration_error")
 		return queryResponse{}, application.ErrProviderUnavailable
 	}
-	target, requestBody, contentType, err := academicRequest(
+	target, requestBody, contentType, err := academicRequestWithValues(
 		endpoint.ServiceURL,
 		operation,
 		periodID,
+		requestValues,
 	)
 	if err != nil {
 		trace.failure("query.finish", "invalid_operation_config", "configuration_error")
@@ -1669,6 +1721,69 @@ func queryKindName(kind queryKind) string {
 	}
 }
 
+func undergraduateSelectionFailureRequestValues() url.Values {
+	return url.Values{
+		"lx":              []string{"tkrz"},
+		"type":            []string{"list"},
+		"cxsj":            []string{"tkjg"},
+		"pageNum":         []string{"1"},
+		"pageSize":        []string{"20"},
+		"sf_request_type": []string{"ajax"},
+	}
+}
+
+func mergeCourseSelections(primary, supplement []domain.CourseSelection) []domain.CourseSelection {
+	result := make([]domain.CourseSelection, 0, len(primary)+len(supplement))
+	seen := make(map[string]struct{}, len(primary)+len(supplement))
+	appendUnique := func(rows []domain.CourseSelection) {
+		for _, row := range rows {
+			key := courseSelectionMergeKey(row)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, row)
+		}
+	}
+	appendUnique(primary)
+	appendUnique(supplement)
+	return result
+}
+
+func courseSelectionMergeKey(row domain.CourseSelection) string {
+	selectedAt := ""
+	if row.SelectedAt != nil {
+		selectedAt = row.SelectedAt.UTC().Format(time.RFC3339Nano)
+	}
+	resultText := ""
+	if row.ResultText != nil {
+		resultText = *row.ResultText
+	}
+	note := ""
+	if row.Note != nil {
+		note = *row.Note
+	}
+	return strings.Join([]string{
+		"selection",
+		row.PeriodID,
+		row.ID,
+		row.CourseCode,
+		row.CourseName,
+		row.CourseType,
+		strconv.FormatFloat(row.Credit, 'g', -1, 64),
+		row.Teacher,
+		row.Campus,
+		row.Location,
+		row.Schedule,
+		strconv.Itoa(row.Capacity),
+		strconv.Itoa(row.Enrolled),
+		string(row.Status),
+		selectedAt,
+		resultText,
+		note,
+	}, "\x00")
+}
+
 func academicRequest(
 	serviceURL string,
 	endpoint academicconfig.OperationEndpoint,
@@ -1763,6 +1878,17 @@ func academicRequestWithValues(
 		endpoint.RequestEncoding == "query" {
 		query := target.Query()
 		for name, values := range periodValues {
+			for _, value := range values {
+				query.Set(name, value)
+			}
+		}
+		target.RawQuery = query.Encode()
+	}
+	if len(extraValues) > 0 &&
+		strings.Contains(path, url.PathEscape(periodID)) &&
+		endpoint.RequestEncoding == "query" {
+		query := target.Query()
+		for name, values := range extraValues {
 			for _, value := range values {
 				query.Set(name, value)
 			}

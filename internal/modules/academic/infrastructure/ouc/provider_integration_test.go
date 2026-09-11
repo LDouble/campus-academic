@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/LDouble/campus-academic/internal/modules/academic/application"
+	"github.com/LDouble/campus-academic/internal/modules/academic/domain"
 	"github.com/LDouble/campus-academic/internal/modules/academic/infrastructure/academicconfig"
 	verificationapp "github.com/LDouble/campus-academic/internal/modules/academic_verification/application"
 	"github.com/emmansun/gmsm/sm2"
@@ -234,6 +235,8 @@ type fakeOUCServer struct {
 	slowQuery                   atomic.Bool
 	malformedQuery              atomic.Bool
 	malformedCatalog            atomic.Int32
+	selectionFailureQueries     atomic.Int32
+	failSelectionFailureQuery   atomic.Bool
 	selectionScheduleEntered    atomic.Bool
 	failSSO                     atomic.Bool
 	requireSSOCookieForService  atomic.Bool
@@ -755,6 +758,30 @@ func (s *fakeOUCServer) handleAcademic(
 			`[{"id":"exam-1","courseCode":"OUC1001","courseName":"海洋科学导论","startAt":"2026-06-20T01:00:00Z","endAt":"2026-06-20T03:00:00Z"}]`,
 		)
 	case strings.Contains(request.URL.Path, "/selections/"):
+		if request.URL.Query().Get("lx") == "tkrz" {
+			s.selectionFailureQueries.Add(1)
+			for key, want := range map[string]string{
+				"lx":              "tkrz",
+				"type":            "list",
+				"cxsj":            "tkjg",
+				"pageNum":         "1",
+				"pageSize":        "20",
+				"sf_request_type": "ajax",
+			} {
+				if got := request.URL.Query().Get(key); got != want {
+					s.recordContractError(fmt.Sprintf("selection supplement query %s=%q want %q", key, got, want))
+				}
+			}
+			if s.failSelectionFailureQuery.Load() {
+				http.Error(writer, "temporary selection supplement failure", http.StatusBadGateway)
+				return
+			}
+			s.writeString(
+				writer,
+				`[{"id":"selection-failed-1","courseCode":"OUC1002","courseName":"抽签落选课程","credit":2,"status":"","tklx":"抽签落选"}]`,
+			)
+			return
+		}
 		s.writeString(
 			writer,
 			`[{"id":"selection-1","courseCode":"OUC1001","courseName":"海洋科学导论","credit":2,"status":"selected"}]`,
@@ -819,7 +846,12 @@ func (s *fakeOUCServer) assertQueryCoverage(
 	s.queryHitsMu.Lock()
 	defer s.queryHitsMu.Unlock()
 	for _, path := range paths {
-		s.assertQueryHitLocked(t, educationLevel, path)
+		want := 1
+		if educationLevel == verificationapp.EducationUndergraduate &&
+			path == strings.ReplaceAll(endpoint.Selections.Path, "{period_id}", "2026-1") {
+			want = 2
+		}
+		s.assertQueryHitCountLocked(t, educationLevel, path, want)
 	}
 }
 
@@ -839,10 +871,19 @@ func (s *fakeOUCServer) assertQueryHitLocked(
 	educationLevel string,
 	path string,
 ) {
+	s.assertQueryHitCountLocked(t, educationLevel, path, 1)
+}
+
+func (s *fakeOUCServer) assertQueryHitCountLocked(
+	t *testing.T,
+	educationLevel string,
+	path string,
+	want int,
+) {
 	t.Helper()
 	key := educationLevel + ":" + path
-	if s.queryHits[key] != 1 {
-		t.Errorf("query hit %q=%d want=1", key, s.queryHits[key])
+	if s.queryHits[key] != want {
+		t.Errorf("query hit %q=%d want=%d", key, s.queryHits[key], want)
 	}
 }
 
@@ -983,8 +1024,22 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 				credential,
 				periods[0].ID,
 			)
-			if err != nil || len(selections) != 1 {
+			wantSelections := 1
+			if test.educationLevel == verificationapp.EducationUndergraduate {
+				wantSelections = 2
+			}
+			if err != nil || len(selections) != wantSelections {
 				t.Fatalf("selections=%+v err=%v", selections, err)
+			}
+			if test.educationLevel == verificationapp.EducationUndergraduate {
+				if got := fake.selectionFailureQueries.Load(); got != 1 {
+					t.Fatalf("selection failure query count=%d want=1", got)
+				}
+				failed := selections[1]
+				if failed.Status != domain.CourseSelectionFailed ||
+					failed.ResultText == nil || *failed.ResultText != "抽签落选" {
+					t.Fatalf("failed selection=%+v", failed)
+				}
 			}
 			if got := fake.loginPosts.Load(); got != 1 {
 				t.Fatalf("login POST count=%d want=1", got)
@@ -994,6 +1049,47 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 			fake.assertNoContractErrors(t)
 		})
 	}
+}
+
+func TestOUCProviderUndergraduateSelectionSupplementIsBestEffort(t *testing.T) {
+	t.Parallel()
+	fake := newFakeOUCServer(t, false, map[string]bool{
+		verificationapp.EducationUndergraduate: true,
+	})
+	fake.failSelectionFailureQuery.Store(true)
+	provider := newIntegrationProvider(t, fake)
+	student := application.StudentReference{
+		UserID:         7,
+		StudentNo:      integrationStudentNo,
+		Provider:       verificationapp.ProviderOUC,
+		EducationLevel: verificationapp.EducationUndergraduate,
+	}
+	credential := application.Credential{
+		StudentNo: integrationStudentNo,
+		Password:  integrationPassword,
+	}
+	selections, err := provider.ListCourseSelections(
+		context.Background(),
+		student,
+		credential,
+		"2026-2027-1",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selections) != 1 || selections[0].ID != "selection-1" {
+		t.Fatalf("selections=%+v want original selection only", selections)
+	}
+	if got := fake.selectionFailureQueries.Load(); got != 1 {
+		t.Fatalf("selection failure query count=%d want=1", got)
+	}
+	fake.queryHitsMu.Lock()
+	got := fake.queryHits[verificationapp.EducationUndergraduate+":/undergraduate/selections/2026-2027-1"]
+	fake.queryHitsMu.Unlock()
+	if got != 2 {
+		t.Fatalf("selection query count=%d want=2", got)
+	}
+	fake.assertNoContractErrors(t)
 }
 
 func TestOUCProviderCourseSelectionScheduleEntersSelectionContextBeforeReadingTable(t *testing.T) {

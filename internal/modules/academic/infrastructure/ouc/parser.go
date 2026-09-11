@@ -547,14 +547,29 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 			continue
 		}
 		code := fieldString(row, "course_code", "courseCode", "kch", "课程号")
-		id := fieldString(row, "id", "selection_id", "jx02id")
+		id := fieldString(row, "id", "selection_id", "jx02id", "jx0404id")
 		if id == "" {
 			id = fmt.Sprintf("%s-%d", code, index+1)
 		}
 		credit, _ := fieldFloat(row, "credit", "xf", "学分")
-		status := normalizeCourseSelectionStatus(
-			fieldString(row, "status", "selectionStatus", "xkzt", "选课状态"),
+		rawStatus := fieldString(
+			row,
+			"status",
+			"selectionStatus",
+			"tklx",
+			"退课类型",
+			"xkzt",
+			"选课状态",
 		)
+		status := normalizeCourseSelectionStatus(rawStatus)
+		resultText := fieldString(row, "result_text", "resultText", "tklx", "退课类型")
+		if len([]rune(resultText)) > 500 {
+			return nil, fmt.Errorf("course selection result text is too long")
+		}
+		var resultTextPointer *string
+		if resultText != "" {
+			resultTextPointer = &resultText
+		}
 		selectedAtValue := fieldTime(row, "selected_at", "selectedAt", "xksj", "选课时间")
 		var selectedAt *time.Time
 		if !selectedAtValue.IsZero() {
@@ -577,6 +592,7 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 				"kcxzmc",
 				"kcxz_mc",
 				"kclb_mc",
+				"kcsxmc",
 				"课程性质",
 			),
 			Credit: credit, Teacher: fieldString(
@@ -585,6 +601,7 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 				"teacherName",
 				"jsxm",
 				"xm",
+				"skls",
 				"授课教师",
 			),
 			Campus:   fieldString(row, "campus", "campusName", "xqmc", "校区"),
@@ -592,7 +609,7 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 			Schedule: fieldString(row, "schedule", "courseTime", "sksj", "上课时间"),
 			Capacity: fieldInt(row, "capacity", "maxCount", "krl", "容量"),
 			Enrolled: fieldInt(row, "enrolled", "selectedCount", "yxrs", "已选人数"),
-			Status:   status, SelectedAt: selectedAt, Note: note,
+			Status:   status, SelectedAt: selectedAt, ResultText: resultTextPointer, Note: note,
 		})
 	}
 	return result, nil
