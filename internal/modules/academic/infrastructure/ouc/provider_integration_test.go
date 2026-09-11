@@ -778,7 +778,7 @@ func (s *fakeOUCServer) handleAcademic(
 			}
 			s.writeString(
 				writer,
-				`[{"id":"selection-failed-1","courseCode":"OUC1002","courseName":"抽签落选课程","credit":2,"status":"","tklx":"抽签落选"}]`,
+				`[{"id":"selection-failed-1","courseCode":"OUC1002","courseName":"抽签落选课程","credit":2,"status":"","tklx":"抽签落选"},{"id":"selection-personal-1","courseCode":"OUC1003","courseName":"个人退选课程","credit":2,"status":"","tklx":"个人退选"}]`,
 			)
 			return
 		}
@@ -1040,6 +1040,11 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 					failed.ResultText == nil || *failed.ResultText != "抽签落选" ||
 					failed.Schedule != "抽签落选" {
 					t.Fatalf("failed selection=%+v", failed)
+				}
+				for _, selection := range selections {
+					if selection.ResultText != nil && strings.Contains(*selection.ResultText, "个人退选") {
+						t.Fatalf("personal withdrawal was not filtered: %+v", selection)
+					}
 				}
 			}
 			if got := fake.loginPosts.Load(); got != 1 {

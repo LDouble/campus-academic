@@ -334,6 +334,29 @@ func TestMergeCourseSelectionsPreservesPrimaryAndRemovesExactDuplicates(t *testi
 	}
 }
 
+func TestFilterPersonalWithdrawals(t *testing.T) {
+	t.Parallel()
+	drawResult := "抽签落选"
+	personalResult := "个人退选"
+	adminResult := "管理员退选"
+	items := []domain.CourseSelection{
+		{ID: "selected-1", Status: domain.CourseSelectionSelected},
+		{ID: "draw-1", Status: domain.CourseSelectionFailed, ResultText: &drawResult},
+		{ID: "personal-1", Status: domain.CourseSelectionFailed, ResultText: &personalResult},
+		{ID: "admin-1", Status: domain.CourseSelectionFailed, ResultText: &adminResult},
+		{ID: "pending-1", Status: domain.CourseSelectionPending, ResultText: &personalResult},
+	}
+	filtered := filterPersonalWithdrawals(items)
+	if len(filtered) != 4 {
+		t.Fatalf("filtered=%+v want 4 records", filtered)
+	}
+	for index, wantID := range []string{"selected-1", "draw-1", "admin-1", "pending-1"} {
+		if filtered[index].ID != wantID {
+			t.Fatalf("filtered[%d]=%+v want id %q", index, filtered[index], wantID)
+		}
+	}
+}
+
 func TestAcademicRequestRejectsInvalidMultiplePeriodID(t *testing.T) {
 	t.Parallel()
 	_, _, _, err := academicRequest(

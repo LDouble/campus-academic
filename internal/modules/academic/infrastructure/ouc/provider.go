@@ -358,6 +358,7 @@ func (p *Provider) ListCourseSelections(
 	if parseErr != nil || student.EducationLevel != verificationapp.EducationUndergraduate {
 		return items, parseErr
 	}
+	items = filterPersonalWithdrawals(items)
 
 	supplementResponse, supplementErr := p.queryWithOperationAndValues(
 		ctx,
@@ -386,6 +387,7 @@ func (p *Provider) ListCourseSelections(
 	if supplementParseErr != nil {
 		return items, nil
 	}
+	supplementItems = filterPersonalWithdrawals(supplementItems)
 	return mergeCourseSelections(items, supplementItems), nil
 }
 
@@ -1730,6 +1732,18 @@ func undergraduateSelectionFailureRequestValues() url.Values {
 		"pageSize":        []string{"20"},
 		"sf_request_type": []string{"ajax"},
 	}
+}
+
+func filterPersonalWithdrawals(items []domain.CourseSelection) []domain.CourseSelection {
+	result := make([]domain.CourseSelection, 0, len(items))
+	for _, item := range items {
+		if item.Status == domain.CourseSelectionFailed && item.ResultText != nil &&
+			strings.Contains(strings.TrimSpace(*item.ResultText), "个人退选") {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result
 }
 
 func mergeCourseSelections(primary, supplement []domain.CourseSelection) []domain.CourseSelection {
