@@ -778,7 +778,7 @@ func (s *fakeOUCServer) handleAcademic(
 			}
 			s.writeString(
 				writer,
-				`[{"id":"selection-failed-1","courseCode":"OUC1002","courseName":"抽签落选课程","credit":2,"status":"","tklx":"抽签落选"},{"id":"selection-personal-1","courseCode":"OUC1003","courseName":"个人退选课程","credit":2,"status":"","tklx":"个人退选"}]`,
+				`[{"id":"selection-failed-1","courseCode":"OUC1002","courseName":"抽签落选课程","credit":2,"status":"","tklx":"抽签落选"},{"id":"selection-personal-1","courseCode":"OUC1003","courseName":"个人退选课程","credit":2,"status":"","tklx":"个人退选"},{"id":"selection-april-1","courseCode":"OUC1004","courseName":"四月历史课程","credit":2,"status":"","tklx":"管理员退选","xksj":"2026-04-23 15:53:30"}]`,
 			)
 			return
 		}
