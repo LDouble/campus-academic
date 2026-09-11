@@ -687,15 +687,21 @@ func TestParseUndergraduateLayuiCourseSelections(t *testing.T) {
 		selected.Location != "测试楼101" ||
 		selected.Schedule != "星期二 0102节" ||
 		selected.Status != domain.CourseSelectionSelected ||
-		selected.SelectedAt != nil {
+		selected.SelectedAt != nil ||
+		selected.ResultText == nil ||
+		*selected.ResultText != "已选" {
 		t.Fatalf("selected=%+v", selected)
 	}
 	if selections[1].PeriodID != "fallback-period" ||
 		selections[1].CourseType != "实践课程" ||
-		selections[1].Status != domain.CourseSelectionPending {
+		selections[1].Status != domain.CourseSelectionPending ||
+		selections[1].ResultText == nil ||
+		*selections[1].ResultText != "待确认" {
 		t.Fatalf("pending=%+v", selections[1])
 	}
-	if selections[2].Status != domain.CourseSelectionFailed {
+	if selections[2].Status != domain.CourseSelectionFailed ||
+		selections[2].ResultText == nil ||
+		*selections[2].ResultText != "落选" {
 		t.Fatalf("failed=%+v", selections[2])
 	}
 }

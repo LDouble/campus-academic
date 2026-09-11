@@ -562,7 +562,7 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 			"选课状态",
 		)
 		status := normalizeCourseSelectionStatus(rawStatus)
-		resultText := fieldString(row, "result_text", "resultText", "tklx", "退课类型")
+		resultText := fieldString(row, "result_text", "resultText", "tklx", "退课类型", "xkzt", "选课状态")
 		if len([]rune(resultText)) > 500 {
 			return nil, fmt.Errorf("course selection result text is too long")
 		}
