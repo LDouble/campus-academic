@@ -358,7 +358,7 @@ func (p *Provider) ListCourseSelections(
 	if parseErr != nil || student.EducationLevel != verificationapp.EducationUndergraduate {
 		return items, parseErr
 	}
-	items = filterPersonalWithdrawals(items)
+	items = filterHiddenUndergraduateSelections(items)
 
 	supplementResponse, supplementErr := p.queryWithOperationAndValues(
 		ctx,
@@ -387,7 +387,7 @@ func (p *Provider) ListCourseSelections(
 	if supplementParseErr != nil {
 		return items, nil
 	}
-	supplementItems = filterPersonalWithdrawals(supplementItems)
+	supplementItems = filterHiddenUndergraduateSelections(supplementItems)
 	return mergeCourseSelections(items, supplementItems), nil
 }
 
@@ -1734,16 +1734,28 @@ func undergraduateSelectionFailureRequestValues() url.Values {
 	}
 }
 
-func filterPersonalWithdrawals(items []domain.CourseSelection) []domain.CourseSelection {
+func filterHiddenUndergraduateSelections(items []domain.CourseSelection) []domain.CourseSelection {
 	result := make([]domain.CourseSelection, 0, len(items))
 	for _, item := range items {
-		if item.Status == domain.CourseSelectionFailed && item.ResultText != nil &&
-			strings.Contains(strings.TrimSpace(*item.ResultText), "个人退选") {
+		if isPersonalWithdrawal(item) || isApril2026Selection(item) {
 			continue
 		}
 		result = append(result, item)
 	}
 	return result
+}
+
+func isPersonalWithdrawal(item domain.CourseSelection) bool {
+	return item.Status == domain.CourseSelectionFailed && item.ResultText != nil &&
+		strings.Contains(strings.TrimSpace(*item.ResultText), "个人退选")
+}
+
+func isApril2026Selection(item domain.CourseSelection) bool {
+	if item.SelectedAt == nil {
+		return false
+	}
+	selectedAt := item.SelectedAt.In(shanghaiLocation)
+	return selectedAt.Year() == 2026 && selectedAt.Month() == time.April
 }
 
 func mergeCourseSelections(primary, supplement []domain.CourseSelection) []domain.CourseSelection {
