@@ -1737,7 +1737,7 @@ func undergraduateSelectionFailureRequestValues() url.Values {
 func filterHiddenUndergraduateSelections(items []domain.CourseSelection) []domain.CourseSelection {
 	result := make([]domain.CourseSelection, 0, len(items))
 	for _, item := range items {
-		if isPersonalWithdrawal(item) || isApril2026Selection(item) {
+		if isPersonalWithdrawal(item) || isAdministratorWithdrawal(item) || isApril2026Selection(item) {
 			continue
 		}
 		result = append(result, item)
@@ -1746,8 +1746,13 @@ func filterHiddenUndergraduateSelections(items []domain.CourseSelection) []domai
 }
 
 func isPersonalWithdrawal(item domain.CourseSelection) bool {
-	return item.Status == domain.CourseSelectionFailed && item.ResultText != nil &&
+	return item.ResultText != nil &&
 		strings.Contains(strings.TrimSpace(*item.ResultText), "个人退选")
+}
+
+func isAdministratorWithdrawal(item domain.CourseSelection) bool {
+	return item.ResultText != nil &&
+		strings.Contains(strings.TrimSpace(*item.ResultText), "管理员退选")
 }
 
 func isApril2026Selection(item domain.CourseSelection) bool {

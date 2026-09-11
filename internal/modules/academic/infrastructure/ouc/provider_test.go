@@ -339,6 +339,7 @@ func TestFilterHiddenUndergraduateSelections(t *testing.T) {
 	drawResult := "抽签落选"
 	personalResult := "个人退选"
 	adminResult := "管理员退选"
+	pendingResult := "待确认"
 	april := time.Date(2026, time.April, 23, 15, 53, 30, 0, shanghaiLocation)
 	march := time.Date(2026, time.March, 23, 15, 53, 30, 0, shanghaiLocation)
 	may := time.Date(2026, time.May, 23, 15, 53, 30, 0, shanghaiLocation)
@@ -348,13 +349,14 @@ func TestFilterHiddenUndergraduateSelections(t *testing.T) {
 		{ID: "personal-may", Status: domain.CourseSelectionFailed, ResultText: &personalResult, SelectedAt: &may},
 		{ID: "admin-april", Status: domain.CourseSelectionFailed, ResultText: &adminResult, SelectedAt: &april},
 		{ID: "admin-may", Status: domain.CourseSelectionFailed, ResultText: &adminResult, SelectedAt: &may},
-		{ID: "pending-without-date", Status: domain.CourseSelectionPending, ResultText: &personalResult},
+		{ID: "draw-may", Status: domain.CourseSelectionFailed, ResultText: &drawResult, SelectedAt: &may},
+		{ID: "pending-without-date", Status: domain.CourseSelectionPending, ResultText: &pendingResult},
 	}
 	filtered := filterHiddenUndergraduateSelections(items)
 	if len(filtered) != 3 {
 		t.Fatalf("filtered=%+v want 3 records", filtered)
 	}
-	for index, wantID := range []string{"draw-march", "admin-may", "pending-without-date"} {
+	for index, wantID := range []string{"draw-march", "draw-may", "pending-without-date"} {
 		if filtered[index].ID != wantID {
 			t.Fatalf("filtered[%d]=%+v want id %q", index, filtered[index], wantID)
 		}
