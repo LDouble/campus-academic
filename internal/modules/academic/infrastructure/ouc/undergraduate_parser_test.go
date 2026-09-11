@@ -767,9 +767,38 @@ func TestParseUndergraduateWithdrawalCourseSelections(t *testing.T) {
 		first.PeriodID != "2026-2027-2" ||
 		first.CourseType != "选修" ||
 		first.Teacher != "胡岩涛" ||
-		first.Schedule != "1-17周 星期二 0506节" ||
+		first.Schedule != "抽签落选" ||
 		first.SelectedAt == nil {
 		t.Fatalf("first withdrawal selection=%+v", first)
+	}
+	if selections[1].Schedule != "个人退选" {
+		t.Fatalf("withdrawal schedule=%q", selections[1].Schedule)
+	}
+	if selections[2].Schedule != "管理员退选" {
+		t.Fatalf("administrator withdrawal schedule=%q", selections[2].Schedule)
+	}
+}
+
+func TestSelectionScheduleWithResult(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		schedule   string
+		resultText string
+		want       string
+	}{
+		{name: "replace schedule", schedule: "星期二 0506节", resultText: "抽签落选", want: "抽签落选"},
+		{name: "reason without schedule", resultText: "个人退选", want: "个人退选"},
+		{name: "replace existing reason", schedule: "星期二 0506节（管理员退选）", resultText: "管理员退选", want: "管理员退选"},
+		{name: "empty reason", schedule: "星期二 0506节", want: "星期二 0506节"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := selectionScheduleWithResult(test.schedule, test.resultText); got != test.want {
+				t.Fatalf("selectionScheduleWithResult(%q, %q)=%q want %q", test.schedule, test.resultText, got, test.want)
+			}
+		})
 	}
 }
 

@@ -579,6 +579,10 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 		if value := fieldString(row, "note", "remark", "bz", "备注"); value != "" {
 			note = &value
 		}
+		schedule := fieldString(row, "schedule", "courseTime", "sksj", "上课时间")
+		if status == domain.CourseSelectionFailed {
+			schedule = selectionScheduleWithResult(schedule, resultText)
+		}
 		result = append(result, domain.CourseSelection{
 			ID: id, PeriodID: valueOr(
 				fieldString(row, "period_id", "semesterId", "xnxqdm", "xnxqid"),
@@ -606,13 +610,22 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 			),
 			Campus:   fieldString(row, "campus", "campusName", "xqmc", "校区"),
 			Location: fieldString(row, "location", "classroom", "jsmc", "skdd", "地点"),
-			Schedule: fieldString(row, "schedule", "courseTime", "sksj", "上课时间"),
+			Schedule: schedule,
 			Capacity: fieldInt(row, "capacity", "maxCount", "krl", "容量"),
 			Enrolled: fieldInt(row, "enrolled", "selectedCount", "yxrs", "已选人数"),
 			Status:   status, SelectedAt: selectedAt, ResultText: resultTextPointer, Note: note,
 		})
 	}
 	return result, nil
+}
+
+func selectionScheduleWithResult(schedule, resultText string) string {
+	schedule = strings.TrimSpace(schedule)
+	resultText = strings.TrimSpace(resultText)
+	if resultText != "" {
+		return resultText
+	}
+	return schedule
 }
 
 func normalizeCourseSelectionStatus(raw string) domain.CourseSelectionStatus {
