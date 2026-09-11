@@ -622,16 +622,10 @@ func parseSelections(body []byte, encoding, periodID string) ([]domain.CourseSel
 func selectionScheduleWithResult(schedule, resultText string) string {
 	schedule = strings.TrimSpace(schedule)
 	resultText = strings.TrimSpace(resultText)
-	if resultText == "" {
-		return schedule
-	}
-	if schedule == "" {
+	if resultText != "" {
 		return resultText
 	}
-	if strings.Contains(schedule, resultText) {
-		return schedule
-	}
-	return schedule + "（" + resultText + "）"
+	return schedule
 }
 
 func normalizeCourseSelectionStatus(raw string) domain.CourseSelectionStatus {

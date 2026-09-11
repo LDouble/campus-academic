@@ -2,7 +2,7 @@
 
 **ID:** selection-failure-schedule
 **Label:** Academic Provider：展示本科生选课失败原因
-**Description:** 将 OUC 本科生选课结果中的落选、退选原因追加到 schedule 字段，兼容仅展示 schedule 的前端。
+**Description:** 将 OUC 本科生选课结果中的落选、退选原因写入 schedule 字段，兼容仅展示 schedule 的前端。
 **Type:** Bug
 **Status:** Done
 **Priority:** High
