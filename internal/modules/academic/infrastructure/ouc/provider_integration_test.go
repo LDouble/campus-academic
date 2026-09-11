@@ -1037,7 +1037,8 @@ func TestOUCProviderFullFlowWithPlainAndSM2Login(t *testing.T) {
 				}
 				failed := selections[1]
 				if failed.Status != domain.CourseSelectionFailed ||
-					failed.ResultText == nil || *failed.ResultText != "抽签落选" {
+					failed.ResultText == nil || *failed.ResultText != "抽签落选" ||
+					failed.Schedule != "抽签落选" {
 					t.Fatalf("failed selection=%+v", failed)
 				}
 			}
