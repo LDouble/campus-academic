@@ -700,6 +700,79 @@ func TestParseUndergraduateLayuiCourseSelections(t *testing.T) {
 	}
 }
 
+func TestParseUndergraduateWithdrawalCourseSelections(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{
+		"msg":"0",
+		"code":0,
+		"count":3,
+		"data":[
+			{
+				"jx0404id":"202620272004909",
+				"xkh":"26214086",
+				"xf":2,
+				"kcsxmc":"选修",
+				"xksj":"2026-09-07 14:23:20",
+				"xkflmc":"通识课选课",
+				"xkryid":"24050005102",
+				"tklx":"抽签落选",
+				"tksj":"2026-09-11 16:38:36",
+				"skls":"胡岩涛",
+				"sksj":"1-17周 星期二 0506节",
+				"kch":"2114250001",
+				"kc_mc":"中国古都与文化遗产",
+				"jx02id":"E61120957EDE49288985D7174205A68E"
+			},
+			{
+				"jx0404id":"202620272004601",
+				"xf":2,
+				"kcsxmc":"必修",
+				"tklx":"个人退选",
+				"skls":"华尔,郭萃,吴志强",
+				"sksj":"1-17周 星期五 05060708节",
+				"kch":"073103102307",
+				"kc_mc":"海洋生物学实验",
+				"jx02id":"999101305733"
+			},
+			{
+				"jx0404id":"202620272000443",
+				"xf":0.3,
+				"kcsxmc":"必修",
+				"tklx":"管理员退选",
+				"skls":"张晓燕,贾希望,万昕怡",
+				"sksj":"4-7周 星期六 0304节",
+				"kch":"008101202601",
+				"kc_mc":"形势与政策-2026秋",
+				"jx02id":"999101307006"
+			}
+		]
+	}`)
+	selections, err := parseSelections(body, "json", "2026-2027-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selections) != 3 {
+		t.Fatalf("selections=%+v", selections)
+	}
+	for index, want := range []string{"抽签落选", "个人退选", "管理员退选"} {
+		selection := selections[index]
+		if selection.Status != domain.CourseSelectionFailed ||
+			selection.ResultText == nil ||
+			*selection.ResultText != want {
+			t.Fatalf("selection[%d]=%+v want failed result %q", index, selection, want)
+		}
+	}
+	first := selections[0]
+	if first.ID != "E61120957EDE49288985D7174205A68E" ||
+		first.PeriodID != "2026-2027-2" ||
+		first.CourseType != "选修" ||
+		first.Teacher != "胡岩涛" ||
+		first.Schedule != "1-17周 星期二 0506节" ||
+		first.SelectedAt == nil {
+		t.Fatalf("first withdrawal selection=%+v", first)
+	}
+}
+
 func TestParseScheduleTimeSupportsOddWeeks(t *testing.T) {
 	t.Parallel()
 	weeks, start, end := parseScheduleTime("1-8周(单)[7-9节]")
