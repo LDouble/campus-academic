@@ -697,7 +697,7 @@ func (s *fakeOUCServer) handleAcademic(
 		return
 	}
 	if request.URL.Path == "/jsxsd/xsxk/newXsxkzx" {
-		if request.URL.Query().Get("jx0502zbid") != "selection-session-test" || request.URL.Query().Get("isallsc") != "" {
+		if request.URL.Query().Get("jx0502zbid") != "selection-session-test" || request.URL.Query().Get("isallsc") != "1" {
 			http.Error(writer, "invalid selection entry", http.StatusBadRequest)
 			return
 		}
