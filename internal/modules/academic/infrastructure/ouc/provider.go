@@ -293,7 +293,7 @@ func (p *Provider) GetCourseSelectionSchedule(
 	}
 	entry := academicconfig.OperationEndpoint{
 		Path: "/jsxsd/xsxk/newXsxkzx", RequestMethod: "GET", RequestEncoding: "query", ResponseEncoding: "html",
-		Parameters: map[string]string{"jx0502zbid": config.IndexSelectionSessionID, "isallsc": ""},
+		Parameters: map[string]string{"jx0502zbid": config.IndexSelectionSessionID, "isallsc": "1"},
 	}
 	entryResponse, err := p.queryWithOperation(ctx, student, credential, queryCourseSelectionSchedule, periodID, &entry)
 	if err != nil {
